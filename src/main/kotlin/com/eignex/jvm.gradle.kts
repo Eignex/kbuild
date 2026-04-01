@@ -4,6 +4,9 @@ plugins {
     id("org.jetbrains.kotlinx.kover")
 }
 
+apply(plugin = "com.eignex.publish")
+apply(plugin = "com.eignex.lint")
+
 repositories { mavenCentral() }
 
 kotlin {
