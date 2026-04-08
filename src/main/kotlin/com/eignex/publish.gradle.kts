@@ -16,7 +16,6 @@ afterEvaluate {
     val githubRepo = eignexPublish.githubRepo.get()
 
     fun MavenPublication.configureCommonPom() {
-        this.artifactId = artifactId
         pom {
             name.set(artifactId)
             description.set(eignexPublish.description.getOrElse(""))
@@ -48,10 +47,12 @@ afterEvaluate {
                 // JVM project: single publication
                 create<MavenPublication>("mavenJava") {
                     from(components["java"])
+                    this.artifactId = artifactId
                     configureCommonPom()
                 }
             } else {
                 // KMP project: publications are auto-created per target; configure POM on each
+                // We rely on the KMP plugin to set the artifactId suffixes (e.g., -jvm, -js) here
                 withType<MavenPublication>().configureEach {
                     configureCommonPom()
                 }
