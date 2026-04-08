@@ -9,10 +9,12 @@ dependencies {
     detektPlugins("io.gitlab.arturbosch.detekt:detekt-formatting:1.23.7")
 }
 
-val eignexDetektConfig = layout.buildDirectory.file("tmp/eignex-detekt.yml").get().asFile
+val eignexDetektConfig =
+    layout.buildDirectory.file("tmp/eignex-detekt.yml").get().asFile
 if (!eignexDetektConfig.exists()) {
     eignexDetektConfig.parentFile.mkdirs()
-    eignexDetektConfig.writeText("""
+    eignexDetektConfig.writeText(
+        """
         formatting:
           active: true
           NoWildcardImports:
@@ -26,7 +28,8 @@ if (!eignexDetektConfig.exists()) {
             active: false
         complexity:
           active: false
-    """.trimIndent())
+    """.trimIndent()
+    )
 }
 
 detekt {
