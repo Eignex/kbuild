@@ -15,13 +15,18 @@ afterEvaluate {
     val artifactId = eignexPublish.artifactId.getOrElse(project.name)
     val githubRepo = eignexPublish.githubRepo.get()
 
-    val dokkaJavadocJar = tasks.register<Jar>("dokkaJavadocJar") {
-        archiveClassifier.set("javadoc")
-        val dokkaTask = tasks.findByName("dokkaGenerate") ?: tasks.findByName("dokkaHtml")
+    fun createJavadocJarTask(pubName: String): TaskProvider<Jar> {
+        return tasks.register<Jar>("${pubName}JavadocJar") {
+            archiveClassifier.set("javadoc")
+            // Use a unique destination directory for each task
+            destinationDirectory.set(layout.buildDirectory.dir("javadoc-jars/$pubName"))
 
-        if (dokkaTask != null) {
-            dependsOn(dokkaTask)
-            from(layout.buildDirectory.dir("dokka/html"))
+            val dokkaTask = tasks.findByName("dokkaGenerate")
+                ?: tasks.findByName("dokkaHtml")
+            if (dokkaTask != null) {
+                dependsOn(dokkaTask)
+                from(layout.buildDirectory.dir("dokka/html"))
+            }
         }
     }
 
@@ -62,7 +67,8 @@ afterEvaluate {
             } else {
                 // KMP project: publications are auto-created per target
                 withType<MavenPublication>().configureEach {
-                    artifact(dokkaJavadocJar)
+                    val javadocJarTask = createJavadocJarTask(name)
+                    artifact(javadocJarTask)
                     configureCommonPom()
                 }
             }
