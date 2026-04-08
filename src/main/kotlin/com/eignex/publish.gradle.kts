@@ -15,6 +15,16 @@ afterEvaluate {
     val artifactId = eignexPublish.artifactId.getOrElse(project.name)
     val githubRepo = eignexPublish.githubRepo.get()
 
+    val dokkaJavadocJar = tasks.register<Jar>("dokkaJavadocJar") {
+        archiveClassifier.set("javadoc")
+        val dokkaTask = tasks.findByName("dokkaGenerate") ?: tasks.findByName("dokkaHtml")
+
+        if (dokkaTask != null) {
+            dependsOn(dokkaTask)
+            from(layout.buildDirectory.dir("dokka/html"))
+        }
+    }
+
     fun MavenPublication.configureCommonPom() {
         pom {
             name.set(artifactId)
@@ -45,15 +55,14 @@ afterEvaluate {
         publications {
             if (components.findByName("java") != null) {
                 // JVM project: single publication
-                create<MavenPublication>("mavenJava") {
-                    from(components["java"])
+                named<MavenPublication>("mavenJava") {
                     this.artifactId = artifactId
                     configureCommonPom()
                 }
             } else {
-                // KMP project: publications are auto-created per target; configure POM on each
-                // We rely on the KMP plugin to set the artifactId suffixes (e.g., -jvm, -js) here
+                // KMP project: publications are auto-created per target
                 withType<MavenPublication>().configureEach {
+                    artifact(dokkaJavadocJar)
                     configureCommonPom()
                 }
             }
