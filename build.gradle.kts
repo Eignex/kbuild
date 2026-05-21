@@ -18,7 +18,7 @@ dependencies {
     implementation("org.jetbrains.dokka:dokka-gradle-plugin:2.1.0")
     implementation("org.jetbrains.kotlinx:kover-gradle-plugin:0.9.5")
     implementation("io.github.sgtsilvio.gradle:gradle-maven-central-publishing:0.4.1")
-    implementation("io.gitlab.arturbosch.detekt:detekt-gradle-plugin:1.23.7")
+    implementation("dev.detekt:detekt-gradle-plugin:2.0.0-alpha.3")
 }
 
 gradlePlugin {
