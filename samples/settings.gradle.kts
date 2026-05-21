@@ -8,4 +8,10 @@ pluginManagement {
     includeBuild("..")
 }
 
-include("jvm-positive", "jvm-negative-fqn")
+include(
+    "jvm-positive",
+    "jvm-negative-fqn",
+    "jvm-negative-undoc",
+    "jvm-negative-sentence",
+    "jvm-negative-deprecated",
+)
