@@ -1,12 +1,12 @@
-import io.gitlab.arturbosch.detekt.Detekt
-import io.gitlab.arturbosch.detekt.DetektCreateBaselineTask
+import dev.detekt.gradle.Detekt
+import dev.detekt.gradle.DetektCreateBaselineTask
 
 plugins {
-    id("io.gitlab.arturbosch.detekt")
+    id("dev.detekt")
 }
 
 dependencies {
-    detektPlugins("io.gitlab.arturbosch.detekt:detekt-formatting:1.23.7")
+    detektPlugins("dev.detekt:detekt-rules-ktlint-wrapper:2.0.0-alpha.3")
 }
 
 val eignexDetektConfig =
@@ -15,7 +15,7 @@ if (!eignexDetektConfig.exists()) {
     eignexDetektConfig.parentFile.mkdirs()
     eignexDetektConfig.writeText(
         """
-        formatting:
+        ktlint:
           active: true
           NoWildcardImports:
             active: false
@@ -26,15 +26,17 @@ if (!eignexDetektConfig.exists()) {
             active: false
           ReturnCount:
             active: false
+          UnnecessaryFullyQualifiedName:
+            active: true
         complexity:
           active: false
         comments:
           active: true
           AbsentOrWrongFileLicense:
             active: false
-          CommentOverPrivateFunction:
+          DocumentationOverPrivateFunction:
             active: false
-          CommentOverPrivateProperty:
+          DocumentationOverPrivateProperty:
             active: false
           DeprecatedBlockTag:
             active: true
@@ -56,6 +58,7 @@ if (!eignexDetektConfig.exists()) {
 
 detekt {
     buildUponDefaultConfig = true
+    enableCompilerPlugin = true
     config.setFrom(
         files(eignexDetektConfig),
         rootProject.files("detekt.yml").filter { it.exists() }
@@ -71,7 +74,6 @@ tasks.withType<Detekt>().configureEach {
     autoCorrect = true
     reports {
         html.required.set(true)
-        xml.required.set(false)
         sarif.required.set(false)
     }
 }
