@@ -10,8 +10,9 @@
 
 # KBuild
 
+[![Maven Central](https://img.shields.io/maven-central/v/com.eignex/kbuild.svg?label=Maven%20Central)](https://central.sonatype.com/artifact/com.eignex/kbuild)
 [![Build](https://github.com/eignex/kbuild/actions/workflows/build.yml/badge.svg)](https://github.com/eignex/kbuild/actions/workflows/build.yml)
-[![License](https://img.shields.io/github/license/eignex/kencode)](https://github.com/eignex/kencode/blob/main/LICENSE)
+[![License](https://img.shields.io/github/license/eignex/kbuild)](https://github.com/eignex/kbuild/blob/main/LICENSE)
 
 > This repository is intended for internal use, but feel free to use however you want.
 
