@@ -1,3 +1,5 @@
+import com.eignex.internal.KBUILD_VERSION
+
 plugins {
     kotlin("jvm")
     id("org.jetbrains.dokka")
@@ -19,6 +21,8 @@ java {
 }
 
 dependencies {
+    "implementation"(platform("com.eignex:kbuild-platform:$KBUILD_VERSION"))
+    "testImplementation"(platform("com.eignex:kbuild-platform:$KBUILD_VERSION"))
     "testImplementation"(kotlin("test"))
 }
 

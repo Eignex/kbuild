@@ -29,6 +29,26 @@ tasks.named<Test>("test") {
     useJUnitPlatform()
 }
 
+val generatedVersionDir = layout.buildDirectory.dir("generated/kbuildVersion/kotlin")
+
+val generateKbuildVersion by tasks.registering {
+    val outDir = generatedVersionDir
+    val ver = version.toString()
+    inputs.property("version", ver)
+    outputs.dir(outDir)
+    doLast {
+        val file = outDir.get().file("com/eignex/internal/KbuildVersion.kt").asFile
+        file.parentFile.mkdirs()
+        file.writeText(
+            "package com.eignex.internal\n\ninternal const val KBUILD_VERSION: String = \"$ver\"\n"
+        )
+    }
+}
+
+sourceSets.main {
+    kotlin.srcDir(generateKbuildVersion)
+}
+
 gradlePlugin {
     website = "https://github.com/Eignex/kbuild"
     vcsUrl = "https://github.com/Eignex/kbuild.git"

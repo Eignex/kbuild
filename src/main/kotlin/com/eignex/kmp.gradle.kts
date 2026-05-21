@@ -1,3 +1,5 @@
+import com.eignex.internal.KBUILD_VERSION
+
 plugins {
     kotlin("multiplatform")
     id("org.jetbrains.dokka")
@@ -18,7 +20,11 @@ kotlin {
     //   linuxX64(); macosX64(); macosArm64(); mingwX64()
 
     sourceSets {
+        commonMain.dependencies {
+            implementation(project.dependencies.platform("com.eignex:kbuild-platform:$KBUILD_VERSION"))
+        }
         commonTest.dependencies {
+            implementation(project.dependencies.platform("com.eignex:kbuild-platform:$KBUILD_VERSION"))
             implementation(kotlin("test"))
         }
     }
