@@ -2,7 +2,7 @@ plugins {
     `kotlin-dsl`
     `maven-publish`
     signing
-    id("io.github.sgtsilvio.gradle.maven-central-publishing") version "0.4.1"
+    id("io.github.sgtsilvio.gradle.maven-central-publishing") version "0.5.0"
 }
 
 group = "com.eignex"
@@ -14,14 +14,14 @@ repositories {
 }
 
 dependencies {
-    implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:2.3.0")
-    implementation("org.jetbrains.dokka:dokka-gradle-plugin:2.1.0")
-    implementation("org.jetbrains.kotlinx:kover-gradle-plugin:0.9.5")
-    implementation("io.github.sgtsilvio.gradle:gradle-maven-central-publishing:0.4.1")
+    implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:2.3.20")
+    implementation("org.jetbrains.dokka:dokka-gradle-plugin:2.2.0")
+    implementation("org.jetbrains.kotlinx:kover-gradle-plugin:0.9.8")
+    implementation("io.github.sgtsilvio.gradle:gradle-maven-central-publishing:0.5.0")
     implementation("dev.detekt:detekt-gradle-plugin:2.0.0-alpha.3")
 
     testImplementation(gradleTestKit())
-    testImplementation("org.junit.jupiter:junit-jupiter:5.11.4")
+    testImplementation("org.junit.jupiter:junit-jupiter:6.1.0")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 

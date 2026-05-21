@@ -60,7 +60,7 @@ class LintPluginRulesTest {
         dir.resolve("build.gradle.kts").writeText(
             """
             plugins {
-                kotlin("jvm") version "2.3.0"
+                kotlin("jvm") version "2.3.20"
                 id("com.eignex.lint")
             }
             repositories { mavenCentral() }
