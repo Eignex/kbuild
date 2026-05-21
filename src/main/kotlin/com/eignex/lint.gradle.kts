@@ -11,10 +11,9 @@ dependencies {
 
 val eignexDetektConfig =
     layout.buildDirectory.file("tmp/eignex-detekt.yml").get().asFile
-if (!eignexDetektConfig.exists()) {
-    eignexDetektConfig.parentFile.mkdirs()
-    eignexDetektConfig.writeText(
-        """
+eignexDetektConfig.parentFile.mkdirs()
+eignexDetektConfig.writeText(
+    """
         ktlint:
           active: true
           NoWildcardImports:
@@ -53,8 +52,7 @@ if (!eignexDetektConfig.exists()) {
           UndocumentedPublicProperty:
             active: true
     """.trimIndent()
-    )
-}
+)
 
 detekt {
     buildUponDefaultConfig = true
