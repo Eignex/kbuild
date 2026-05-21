@@ -19,6 +19,14 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kover-gradle-plugin:0.9.5")
     implementation("io.github.sgtsilvio.gradle:gradle-maven-central-publishing:0.4.1")
     implementation("dev.detekt:detekt-gradle-plugin:2.0.0-alpha.3")
+
+    testImplementation(gradleTestKit())
+    testImplementation("org.junit.jupiter:junit-jupiter:5.11.4")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+}
+
+tasks.named<Test>("test") {
+    useJUnitPlatform()
 }
 
 gradlePlugin {

@@ -1,9 +1,11 @@
-rootProject.name = "jvm-sample"
+rootProject.name = "samples"
 
 pluginManagement {
     repositories {
         gradlePluginPortal()
         mavenCentral()
     }
-    includeBuild("../..")
+    includeBuild("..")
 }
+
+include("jvm-positive", "jvm-negative-fqn")
