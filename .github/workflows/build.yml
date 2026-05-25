@@ -39,4 +39,6 @@ jobs:
           path: |
             build/reports/tests/
             build/test-results/
+            platform/build/reports/tests/
+            platform/build/test-results/
           if-no-files-found: ignore
