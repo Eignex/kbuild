@@ -27,6 +27,8 @@ eignexDetektConfig.writeText(
             active: false
           UnnecessaryFullyQualifiedName:
             active: true
+          LoopWithTooManyJumpStatements:
+            active: false
         complexity:
           active: false
         comments:
