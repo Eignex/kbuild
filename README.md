@@ -24,7 +24,7 @@ kbuild provides five main convention plugins:
 
 1. `jvm`: For pure Kotlin/JVM libraries. Includes Dokka, Kover, and testing defaults.
 2. `kmp`: For Kotlin Multiplatform projects. Sets up common testing and toolchains.
-3. `cli`: For Kotlin Multiplatform CLI applications. Wires JVM and native executables onto consumer-declared targets; no publishing.
+3. `cli`: For Kotlin Multiplatform CLI applications. Wires JVM and native executables onto consumer-declared targets; no publishing. A `releaseAssets` task collects stripped native binaries (`<name>-<version>-<os>-<arch>`), the JVM dist zip, and a `SHA256SUMS` file into `build/release-assets/` for upload to GitHub releases.
 4. `publish`: Standardized Maven Central publishing logic, including automated POM generation and GPG signing.
 5. `lint`: Shared Detekt configuration with Eignex-specific style suppressions.
 
