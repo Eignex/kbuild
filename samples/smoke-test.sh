@@ -50,6 +50,15 @@ run_positive jvm-positive
 run_positive cli-positive
 run_cli cli-positive runJvm "hello kbuild"
 run_cli cli-positive runReleaseExecutableLinuxX64 "hello kbuild"
+
+echo ">>> cli: cli-positive:releaseAssets"
+if ! "$GRADLEW" :cli-positive:releaseAssets --no-daemon --quiet; then
+    echo "FAIL: expected cli-positive:releaseAssets to succeed"
+    fail=1
+elif ! (cd cli-positive/build/release-assets && sha256sum --check --quiet SHA256SUMS); then
+    echo "FAIL: release assets missing or checksums wrong"
+    fail=1
+fi
 run_negative jvm-negative-fqn        detektMain UnnecessaryFullyQualifiedName
 run_negative jvm-negative-undoc      detekt     UndocumentedPublicClass
 run_negative jvm-negative-sentence   detekt     EndOfSentenceFormat

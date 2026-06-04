@@ -1,8 +1,12 @@
 import com.eignex.internal.KBUILD_VERSION
 import com.eignex.kbuild.EignexCliExtension
+import java.security.MessageDigest
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
+import org.jetbrains.kotlin.gradle.plugin.mpp.Executable
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
+import org.jetbrains.kotlin.gradle.plugin.mpp.NativeBuildType
 import org.jetbrains.kotlin.gradle.targets.jvm.KotlinJvmTarget
+import org.jetbrains.kotlin.konan.target.HostManager
 
 plugins {
     kotlin("multiplatform")
@@ -10,6 +14,9 @@ plugins {
 }
 
 apply(plugin = "com.eignex.lint")
+
+group = "com.eignex"
+version = findProperty("ciVersion") as String? ?: "SNAPSHOT"
 
 repositories { mavenCentral() }
 
@@ -52,6 +59,56 @@ afterEvaluate {
     kotlin.targets.withType<KotlinNativeTarget>().configureEach {
         binaries.executable {
             eignexCli.entryPoint.orNull?.let { entryPoint = it }
+        }
+    }
+
+    // Release packaging: collect renamed, stripped native executables and the JVM dist zip
+    // into build/release-assets/, ready to upload as GitHub release assets.
+    val baseName = project.name
+    val assetVersion = version.toString()
+    val assetsDir = layout.buildDirectory.dir("release-assets")
+
+    // Only host-linkable targets: macOS binaries cannot be cross-linked from Linux and vice versa.
+    val hostManager = HostManager()
+    val nativeExecutables = kotlin.targets.withType<KotlinNativeTarget>()
+        .filter { hostManager.isEnabled(it.konanTarget) }
+        .flatMap { it.binaries.filterIsInstance<Executable>() }
+        .filter { it.buildType == NativeBuildType.RELEASE }
+    val jvmDistZip = tasks.findByName("jvmDistZip") as Zip?
+
+    tasks.register("releaseAssets") {
+        group = "distribution"
+        description = "Collects stripped native executables and the JVM dist zip into build/release-assets."
+        nativeExecutables.forEach { dependsOn(it.linkTaskProvider) }
+        jvmDistZip?.let { dependsOn(it) }
+
+        val nativeAssets = nativeExecutables.map { binary ->
+            // linux_x64 -> linux-x64, mingw_x64 -> windows-x64
+            val osArch = binary.target.konanTarget.name.replace("mingw", "windows").replace('_', '-')
+            binary.outputFile to "$baseName-$assetVersion-$osArch"
+        }
+        val jvmZip = jvmDistZip?.archiveFile
+
+        doLast {
+            val dir = assetsDir.get().asFile
+            dir.deleteRecursively()
+            dir.mkdirs()
+            val assets = mutableListOf<File>()
+            for ((outputFile, assetName) in nativeAssets) {
+                val asset = outputFile.copyTo(dir.resolve(assetName))
+                asset.setExecutable(true)
+                // Best effort: keep the unstripped binary if strip is unavailable.
+                runCatching { ProcessBuilder("strip", asset.absolutePath).start().waitFor() }
+                assets += asset
+            }
+            jvmZip?.let { assets += it.get().asFile.copyTo(dir.resolve("$baseName-$assetVersion-jvm.zip")) }
+            val digest = MessageDigest.getInstance("SHA-256")
+            dir.resolve("SHA256SUMS").writeText(
+                assets.joinToString("") { asset ->
+                    val sum = digest.digest(asset.readBytes()).joinToString("") { "%02x".format(it) }
+                    "$sum  ${asset.name}\n"
+                }
+            )
         }
     }
 }
