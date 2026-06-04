@@ -88,6 +88,8 @@ afterEvaluate {
             binary.outputFile to "$baseName-$assetVersion-$osArch"
         }
         val jvmZip = jvmDistZip?.archiveFile
+        // macOS needs -x (non-global symbols only): a full strip fails on linked Mach-O executables.
+        val stripCommand = if (HostManager.hostIsMac) listOf("strip", "-x") else listOf("strip")
 
         doLast {
             val dir = assetsDir.get().asFile
@@ -98,7 +100,14 @@ afterEvaluate {
                 val asset = outputFile.copyTo(dir.resolve(assetName))
                 asset.setExecutable(true)
                 // Best effort: keep the unstripped binary if strip is unavailable.
-                runCatching { ProcessBuilder("strip", asset.absolutePath).start().waitFor() }
+                // Discard output: an unread pipe fills up and deadlocks waitFor.
+                runCatching {
+                    ProcessBuilder(stripCommand + asset.absolutePath)
+                        .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                        .redirectError(ProcessBuilder.Redirect.DISCARD)
+                        .start()
+                        .waitFor()
+                }
                 assets += asset
             }
             jvmZip?.let { assets += it.get().asFile.copyTo(dir.resolve("$baseName-$assetVersion-jvm.zip")) }
