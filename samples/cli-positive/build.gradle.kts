@@ -5,6 +5,7 @@ plugins {
 kotlin {
     jvm()
     linuxX64()
+    macosArm64()
 }
 
 eignexCli {
