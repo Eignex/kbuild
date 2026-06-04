@@ -20,14 +20,16 @@
 
 ## Overview
 
-kbuild provides four main convention plugins:
+kbuild provides five main convention plugins:
 
 1. `jvm`: For pure Kotlin/JVM libraries. Includes Dokka, Kover, and testing defaults.
 2. `kmp`: For Kotlin Multiplatform projects. Sets up common testing and toolchains.
-3. `publish`: Standardized Maven Central publishing logic, including automated POM generation and GPG signing.
-4. `lint`: Shared Detekt configuration with Eignex-specific style suppressions.
+3. `cli`: For Kotlin Multiplatform CLI applications. Wires JVM and native executables onto consumer-declared targets; no publishing.
+4. `publish`: Standardized Maven Central publishing logic, including automated POM generation and GPG signing.
+5. `lint`: Shared Detekt configuration with Eignex-specific style suppressions.
 
 Both publishing and linting plugins are loaded by either jvm and kmp plugins. So in practice you apply either jvm or
-kmp.
+kmp for libraries, or cli for applications. The cli plugin expects targets declared by the consumer and a
+`eignexCli { mainClass = "..."; entryPoint = "..." }` block for the JVM main class and Kotlin/Native entry point.
 
 To configure for your own projects you will need to fork and publish your own version.

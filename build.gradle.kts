@@ -55,6 +55,7 @@ gradlePlugin {
     plugins {
         named("jvm")     { id = "com.eignex.jvm" }
         named("kmp")     { id = "com.eignex.kmp" }
+        named("cli")     { id = "com.eignex.cli" }
         named("publish") { id = "com.eignex.publish" }
         named("lint")    { id = "com.eignex.lint" }
     }

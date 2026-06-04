@@ -31,7 +31,25 @@ run_negative() {
     fi
 }
 
+run_cli() {
+    local proj="$1" task="$2" expected="$3"
+    echo ">>> cli: $proj:$task (expecting \"$expected\")"
+    local out
+    if ! out=$("$GRADLEW" ":$proj:$task" --no-daemon --quiet 2>&1); then
+        echo "$out"
+        echo "FAIL: expected $proj:$task to succeed"
+        fail=1
+    elif ! grep -q "$expected" <<<"$out"; then
+        echo "$out"
+        echo "FAIL: $proj:$task did not print \"$expected\""
+        fail=1
+    fi
+}
+
 run_positive jvm-positive
+run_positive cli-positive
+run_cli cli-positive runJvm "hello kbuild"
+run_cli cli-positive runReleaseExecutableLinuxX64 "hello kbuild"
 run_negative jvm-negative-fqn        detektMain UnnecessaryFullyQualifiedName
 run_negative jvm-negative-undoc      detekt     UndocumentedPublicClass
 run_negative jvm-negative-sentence   detekt     EndOfSentenceFormat
