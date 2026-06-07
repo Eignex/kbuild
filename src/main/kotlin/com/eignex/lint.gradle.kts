@@ -9,10 +9,11 @@ dependencies {
     detektPlugins("dev.detekt:detekt-rules-ktlint-wrapper:2.0.0-alpha.3")
 }
 
-val eignexDetektConfig =
-    layout.buildDirectory.file("tmp/eignex-detekt.yml").get().asFile
-eignexDetektConfig.parentFile.mkdirs()
-eignexDetektConfig.writeText(
+// The shared config the detekt tasks consume. Materialized by a task (below) rather than
+// written here at configuration time: an eager write is skipped when the configuration
+// cache is reused, leaving the consuming tasks pointing at a file that — on a fresh
+// checkout that restored only the Gradle home, not build/ — never gets created.
+val eignexDetektConfigContent =
     """
         ktlint:
           active: true
@@ -54,13 +55,28 @@ eignexDetektConfig.writeText(
           UndocumentedPublicProperty:
             active: true
     """.trimIndent()
-)
+
+val eignexDetektConfigFile = layout.buildDirectory.file("tmp/eignex-detekt.yml")
+
+val writeEignexDetektConfig = tasks.register("writeEignexDetektConfig") {
+    description = "Materializes the shared Eignex detekt config the detekt tasks read."
+    val output = eignexDetektConfigFile
+    val content = eignexDetektConfigContent
+    inputs.property("content", content)
+    outputs.file(output).withPropertyName("eignexDetektConfig")
+    doLast {
+        output.get().asFile.apply {
+            parentFile.mkdirs()
+            writeText(content)
+        }
+    }
+}
 
 detekt {
     buildUponDefaultConfig = true
     enableCompilerPlugin = true
     config.setFrom(
-        files(eignexDetektConfig),
+        files(eignexDetektConfigFile),
         rootProject.files("detekt.yml").filter { it.exists() }
     )
     source.setFrom(fileTree("src") {
@@ -70,6 +86,7 @@ detekt {
 }
 
 tasks.withType<Detekt>().configureEach {
+    dependsOn(writeEignexDetektConfig)
     jvmTarget = "21"
     autoCorrect = true
     reports {
@@ -79,6 +96,7 @@ tasks.withType<Detekt>().configureEach {
 }
 
 tasks.withType<DetektCreateBaselineTask>().configureEach {
+    dependsOn(writeEignexDetektConfig)
     jvmTarget = "21"
 }
 
