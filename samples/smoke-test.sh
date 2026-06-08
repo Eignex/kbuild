@@ -47,6 +47,7 @@ run_cli() {
 }
 
 run_positive jvm-positive
+run_positive kmp-positive
 run_positive cli-positive
 run_cli cli-positive runJvm "hello kbuild"
 run_cli cli-positive runReleaseExecutableLinuxX64 "hello kbuild"
