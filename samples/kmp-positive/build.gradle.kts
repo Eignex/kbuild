@@ -9,7 +9,6 @@ eignexPublish {
 
 kotlin {
     jvm()
-    // wasmWasi exercises the Node pin: its Kotlin 2.3 output embeds exnref types that only
-    // instantiate on a Node whose V8 has stable exception handling.
+    // wasmWasi guards the node pin: its exnref output needs a stable-exnref V8.
     wasmWasi { nodejs() }
 }
