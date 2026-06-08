@@ -1,8 +1,8 @@
 plugins {
-    kotlin("jvm") version "2.3.20"
-    id("com.eignex.lint")
+    id("com.eignex.jvm")
 }
 
-repositories { mavenCentral() }
-
-kotlin { jvmToolchain(21) }
+eignexPublish {
+    description.set("Positive sample exercising the com.eignex.jvm convention (toolchain, lint, publish).")
+    githubRepo.set("Eignex/kbuild")
+}
