@@ -13,6 +13,7 @@ includeBuild("..")
 
 include(
     "jvm-positive",
+    "kmp-positive",
     "cli-positive",
     "jvm-negative-fqn",
     "jvm-negative-undoc",
