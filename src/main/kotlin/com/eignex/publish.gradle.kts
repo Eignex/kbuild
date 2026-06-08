@@ -12,6 +12,10 @@ version = findProperty("ciVersion") as String? ?: "SNAPSHOT"
 val eignexPublish = extensions.create<EignexPublishExtension>("eignexPublish")
 
 afterEvaluate {
+    // Opt out for internal modules (benchmarks, samples) that use the conventions but never
+    // publish; skips the publication/signing wiring and the githubRepo requirement.
+    if (!eignexPublish.publish.getOrElse(true)) return@afterEvaluate
+
     val artifactId = eignexPublish.artifactId.getOrElse(project.name)
     val githubRepo = eignexPublish.githubRepo.get()
 
@@ -59,8 +63,10 @@ afterEvaluate {
     publishing {
         publications {
             if (components.findByName("java") != null) {
-                // JVM project: single publication
-                named<MavenPublication>("mavenJava") {
+                // JVM project: a single publication from the java component (the sources and
+                // javadoc jars are already wired into it by jvm.gradle.kts).
+                create<MavenPublication>("mavenJava") {
+                    from(components["java"])
                     this.artifactId = artifactId
                     configureCommonPom()
                 }

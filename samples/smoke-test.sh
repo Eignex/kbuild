@@ -58,6 +58,8 @@ run_cli() {
 }
 
 run_positive jvm-positive
+# Exercise the com.eignex.jvm publish path (the mavenJava publication) against local staging.
+run_task jvm-positive publishMavenJavaPublicationToLocalStagingRepository
 run_task kmp-positive wasmWasiNodeTest
 run_positive cli-positive
 run_cli cli-positive runJvm "hello kbuild"
