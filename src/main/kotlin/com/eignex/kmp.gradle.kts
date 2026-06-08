@@ -34,10 +34,8 @@ kotlin {
     }
 }
 
-// Pin the js/wasm test runner to Node 25, whose V8 ships the exnref exception handling
-// that wasmWasi compiles to (Kotlin 2.3 default) as stable. On Node 24 exnref is behind
-// --experimental-wasm-exnref, and that experimental path intermittently crashes
-// wasmWasiNodeTest under load. No-op without js/wasm targets.
+// Node 25's V8 has stable exnref (wasmWasi's Kotlin 2.3 output); node 24's is experimental
+// and flaky under load. No-op without js/wasm targets.
 val pinnedNodeVersion = "25.0.0"
 
 plugins.withType<WasmNodeJsPlugin> {
