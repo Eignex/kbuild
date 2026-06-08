@@ -16,6 +16,17 @@ run_positive() {
     fi
 }
 
+# A targeted positive run — one task rather than the full :check. Used by the kmp sample,
+# whose only job is to instantiate a wasmWasi module on the pinned node.
+run_task() {
+    local proj="$1" task="$2"
+    echo ">>> task: $proj:$task"
+    if ! "$GRADLEW" ":$proj:$task" --no-daemon; then
+        echo "FAIL: expected $proj:$task to pass"
+        fail=1
+    fi
+}
+
 run_negative() {
     local proj="$1" task="$2" expected_rule="$3"
     echo ">>> negative: $proj:$task (expecting $expected_rule)"
@@ -47,7 +58,7 @@ run_cli() {
 }
 
 run_positive jvm-positive
-run_positive kmp-positive
+run_task kmp-positive wasmWasiNodeTest
 run_positive cli-positive
 run_cli cli-positive runJvm "hello kbuild"
 run_cli cli-positive runReleaseExecutableLinuxX64 "hello kbuild"
