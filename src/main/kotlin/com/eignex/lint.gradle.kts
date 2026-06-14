@@ -100,6 +100,35 @@ tasks.withType<DetektCreateBaselineTask>().configureEach {
     jvmTarget = "21"
 }
 
+// Kotlin/Native (and Android dex) reject characters in backtick identifiers that the JVM
+// accepts, so a test name like `foo (#389)` compiles for jvm but fails the native compile
+// with a cryptic error. Catch it here, early and with a file:line, instead of in the build.
+val checkNativeSafeTestNames = tasks.register("checkNativeSafeTestNames") {
+    group = "verification"
+    description = "Fails on backtick test names with chars Kotlin/Native rejects: ( ) #"
+    val testSources = fileTree("src") {
+        include("**/*Test/kotlin/**/*.kt")
+    }
+    inputs.files(testSources).withPropertyName("testSources")
+    doLast {
+        val forbidden = Regex("""fun\s+`[^`]*[()#][^`]*`""")
+        val offenders = testSources.files.flatMap { file ->
+            file.useLines { lines ->
+                lines.withIndex()
+                    .filter { (_, line) -> forbidden.containsMatchIn(line) }
+                    .map { (i, line) -> "${file.relativeTo(projectDir)}:${i + 1}: ${line.trim()}" }
+                    .toList()
+            }
+        }
+        if (offenders.isNotEmpty()) {
+            throw GradleException(
+                "Backtick test name(s) contain ( ) or # — breaks the Kotlin/Native compile:\n" +
+                        offenders.joinToString("\n").prependIndent("  ")
+            )
+        }
+    }
+}
+
 val lintDocs = tasks.register("lintDocs") {
     group = "verification"
     description = "Runs detekt comment rules and Dokka (with failOnWarning) to validate KDoc."
@@ -139,4 +168,5 @@ pluginManager.withPlugin("org.jetbrains.dokka") {
 
 tasks.named("check") {
     dependsOn(lintDocs)
+    dependsOn(checkNativeSafeTestNames)
 }
