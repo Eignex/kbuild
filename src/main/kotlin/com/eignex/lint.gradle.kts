@@ -169,7 +169,11 @@ pluginManager.withPlugin("org.jetbrains.dokka") {
     }
 }
 
+// `check` runs the fast verification — detekt (code + comment rules, incl. "public symbols
+// are documented") and the native-name check. It deliberately does NOT pull `lintDocs`: that
+// task's dokka link-validation run is the slowest thing in CI, so consumers run it as its own
+// (parallel) job, keeping it off the check/build critical path.
 tasks.named("check") {
-    dependsOn(lintDocs)
+    dependsOn(tasks.withType<Detekt>())
     dependsOn(checkNativeSafeTestNames)
 }
