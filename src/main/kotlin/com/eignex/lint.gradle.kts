@@ -109,6 +109,9 @@ val checkNativeSafeTestNames = tasks.register("checkNativeSafeTestNames") {
     val testSources = fileTree("src") {
         include("**/*Test/kotlin/**/*.kt")
     }
+    // Capture projectDir as a plain File at configuration time; reading project state inside
+    // doLast breaks the configuration cache (see the writeEignexDetektConfig note above).
+    val projectDirFile = projectDir
     inputs.files(testSources).withPropertyName("testSources")
     doLast {
         val forbidden = Regex("""fun\s+`[^`]*[()#][^`]*`""")
@@ -116,7 +119,7 @@ val checkNativeSafeTestNames = tasks.register("checkNativeSafeTestNames") {
             file.useLines { lines ->
                 lines.withIndex()
                     .filter { (_, line) -> forbidden.containsMatchIn(line) }
-                    .map { (i, line) -> "${file.relativeTo(projectDir)}:${i + 1}: ${line.trim()}" }
+                    .map { (i, line) -> "${file.relativeTo(projectDirFile)}:${i + 1}: ${line.trim()}" }
                     .toList()
             }
         }
