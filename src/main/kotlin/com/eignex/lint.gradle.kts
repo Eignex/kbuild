@@ -132,6 +132,103 @@ val checkNativeSafeTestNames = tasks.register("checkNativeSafeTestNames") {
     }
 }
 
+// Cheap KDoc validation that runs in `check` (so broken docs surface on a local build, not
+// only in the dokka job): block tags must be valid KDoc tags, and the package in a qualified
+// [link] must actually exist in this project. This is a lexical scan — it deliberately does
+// NOT resolve symbols (that needs the compiler frontend); full link resolution stays in
+// lintDocs' dokka run. External links ([kotlin.*], [java.*]) are skipped via the package-root
+// filter, so false positives stay near zero.
+val checkKdoc = tasks.register("checkKdoc") {
+    group = "verification"
+    description = "Checks KDoc block tags are valid and qualified [links] name a real project package."
+    val sources = fileTree("src") { include("**/*.kt") }
+    val projectDirFile = projectDir
+    inputs.files(sources).withPropertyName("kdocSources")
+    doLast {
+        val validTags = setOf(
+            "param", "return", "receiver", "property", "throws", "exception",
+            "constructor", "see", "sample", "author", "since", "suppress",
+        )
+        val files = sources.files
+        // Index every package this project declares. A link is only checked when its package
+        // sits under the project's own root (the longest common package prefix), so dependency
+        // and stdlib refs — including sibling deps that share the group, e.g. com.eignex.skema
+        // — and [kotlin.*]/[java.*] are left alone.
+        val packageRegex = Regex("""^\s*package\s+([\w.]+)""")
+        val knownPackages = files.flatMap { f ->
+            f.useLines { lines -> lines.mapNotNull { packageRegex.find(it)?.groupValues?.get(1) }.toList() }
+        }.toSet()
+        val splits = knownPackages.map { it.split('.') }
+        val projectRoot = if (splits.isEmpty()) "" else buildList {
+            for (i in 0 until splits.minOf { it.size }) {
+                val seg = splits.mapTo(mutableSetOf()) { it[i] }
+                if (seg.size == 1) add(seg.first()) else break
+            }
+        }.joinToString(".")
+        fun packageExists(p: String) = knownPackages.any { it == p || it.startsWith("$p.") }
+
+        val tagRegex = Regex("""^\s*(?:/\*\*)?\s*\*?\s*@(\w+)""")
+        val linkRegex = Regex("""\[([A-Za-z_][\w.]*(?:\(\))?)]""")
+        val offenders = mutableListOf<String>()
+
+        for (file in files) {
+            var inKdoc = false
+            var inFence = false // inside a ``` code fence within a KDoc block — skip checks there
+            file.useLines { lines ->
+                lines.forEachIndexed { idx, line ->
+                    if (!inKdoc && "/**" in line) inKdoc = true
+                    if (!inKdoc) return@forEachIndexed
+                    if ("```" in line) {
+                        inFence = !inFence
+                        return@forEachIndexed
+                    }
+                    if (inFence) {
+                        if ("*/" in line) { inKdoc = false; inFence = false }
+                        return@forEachIndexed
+                    }
+                    val loc = "${file.relativeTo(projectDirFile)}:${idx + 1}"
+                    // KDoc block tags are lowercase (@param, @return…); annotations on the
+                    // declaration below (@Serializable, @Test) are PascalCase, so the
+                    // lowercase-first guard ignores them.
+                    tagRegex.find(line)?.groupValues?.get(1)?.let { tag ->
+                        if (tag.first().isLowerCase() && tag !in validTags) {
+                            offenders += "$loc: unknown KDoc tag @$tag"
+                        }
+                    }
+                    if (projectRoot.isNotEmpty()) {
+                        for (m in linkRegex.findAll(line)) {
+                            val end = m.range.last + 1
+                            if (end < line.length && line[end] == '(') continue // markdown URL: [text](url)
+                            val ref = m.groupValues[1].removeSuffix("()")
+                            val parts = ref.split('.')
+                            val pkgSegs = parts.takeWhile { it.isNotEmpty() && it.first().isLowerCase() }
+                            if (pkgSegs.isEmpty()) continue
+                            val pkg = pkgSegs.joinToString(".")
+                            if (pkg != projectRoot && !pkg.startsWith("$projectRoot.")) continue
+                            // If the ref ends in a type segment (PascalCase) the package is
+                            // unambiguous. If it's all-lowercase the last segment may be a
+                            // top-level function rather than a sub-package, so accept the parent.
+                            val ok = if (pkgSegs.size < parts.size) {
+                                packageExists(pkg)
+                            } else {
+                                val parent = pkgSegs.dropLast(1).joinToString(".")
+                                packageExists(pkg) || (parent.isNotEmpty() && packageExists(parent))
+                            }
+                            if (!ok) offenders += "$loc: KDoc link [$ref] references unknown package '$pkg'"
+                        }
+                    }
+                    if ("*/" in line) inKdoc = false
+                }
+            }
+        }
+        if (offenders.isNotEmpty()) {
+            throw GradleException(
+                "KDoc validation failed:\n" + offenders.joinToString("\n").prependIndent("  ")
+            )
+        }
+    }
+}
+
 val lintDocs = tasks.register("lintDocs") {
     group = "verification"
     description = "Runs detekt comment rules and Dokka (with failOnWarning) to validate KDoc."
@@ -169,11 +266,14 @@ pluginManager.withPlugin("org.jetbrains.dokka") {
     }
 }
 
-// `check` runs the fast verification — detekt (code + comment rules, incl. "public symbols
-// are documented") and the native-name check. It deliberately does NOT pull `lintDocs`: that
-// task's dokka link-validation run is the slowest thing in CI, so consumers run it as its own
-// (parallel) job, keeping it off the check/build critical path.
+// `check` runs the fast verification — detekt (code + comment rules, incl. "public symbols are
+// documented"), the native-name check, and the cheap KDoc check (valid tags + package exists).
+// It deliberately does NOT pull `lintDocs`: that task's full dokka link-resolution run is the
+// slowest thing in CI, so consumers run it as its own (parallel) job, keeping it off the
+// check/build critical path. The cheap checks above still catch the common KDoc mistakes on a
+// local build; dokka remains the thorough backstop.
 tasks.named("check") {
     dependsOn(tasks.withType<Detekt>())
     dependsOn(checkNativeSafeTestNames)
+    dependsOn(checkKdoc)
 }
