@@ -95,6 +95,18 @@ tasks.withType<Detekt>().configureEach {
     }
 }
 
+// detekt's multiplatform type-resolution tasks compile all source sets as one module without the
+// serialization plugin or K2 fragment structure, so @Serializable and expect/actual show up as
+// "N compiler errors found during analysis" — harmless but noisy. The source-set tasks still cover
+// every rule this config enables. JVM-only projects keep their (correct) type-resolution tasks.
+pluginManager.withPlugin("org.jetbrains.kotlin.multiplatform") {
+    tasks.withType<Detekt>().configureEach {
+        if (description?.endsWith("with type resolution") == true) {
+            enabled = false
+        }
+    }
+}
+
 tasks.withType<DetektCreateBaselineTask>().configureEach {
     dependsOn(writeEignexDetektConfig)
     jvmTarget = "21"
