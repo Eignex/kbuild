@@ -105,7 +105,7 @@ publishing {
     repositories {
         maven {
             name = "sonatypeSnapshots"
-            url = uri("https://s01.oss.sonatype.org/content/repositories/snapshots")
+            url = uri("https://central.sonatype.com/repository/maven-snapshots/")
             credentials {
                 username = findProperty("mavenCentralUsername") as String? ?: ""
                 password = findProperty("mavenCentralPassword") as String? ?: ""
