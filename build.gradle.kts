@@ -14,14 +14,14 @@ repositories {
 }
 
 dependencies {
-    implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:2.3.20")
+    implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:2.4.10")
     implementation("org.jetbrains.dokka:dokka-gradle-plugin:2.2.0")
-    implementation("org.jetbrains.kotlinx:kover-gradle-plugin:0.9.8")
+    implementation("org.jetbrains.kotlinx:kover-gradle-plugin:0.9.9")
     implementation("io.github.sgtsilvio.gradle:gradle-maven-central-publishing:0.5.0")
-    implementation("dev.detekt:detekt-gradle-plugin:2.0.0-alpha.3")
+    implementation("dev.detekt:detekt-gradle-plugin:2.0.0-alpha.5")
 
     testImplementation(gradleTestKit())
-    testImplementation("org.junit.jupiter:junit-jupiter:6.1.0")
+    testImplementation("org.junit.jupiter:junit-jupiter:6.1.2")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
