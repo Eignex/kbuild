@@ -16,7 +16,7 @@ apply(plugin = "com.eignex.lint")
 repositories { mavenCentral() }
 
 kotlin {
-    jvmToolchain(21)
+    jvmToolchain(25)
 
     // Declare targets in your build.gradle.kts:
     //   jvm()

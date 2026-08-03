@@ -87,7 +87,7 @@ detekt {
 
 tasks.withType<Detekt>().configureEach {
     dependsOn(writeEignexDetektConfig)
-    jvmTarget = "21"
+    jvmTarget = "25"
     autoCorrect = true
     reports {
         html.required.set(true)
@@ -97,7 +97,7 @@ tasks.withType<Detekt>().configureEach {
 
 tasks.withType<DetektCreateBaselineTask>().configureEach {
     dependsOn(writeEignexDetektConfig)
-    jvmTarget = "21"
+    jvmTarget = "25"
 }
 
 // Kotlin/Native (and Android dex) reject characters in backtick identifiers that the JVM

@@ -19,8 +19,8 @@ dependencies {
 
     // Direct recommendations for libs that don't ship a BOM.
     constraints {
-        api("org.junit.jupiter:junit-jupiter:6.1.0")
-        api("org.junit.platform:junit-platform-launcher:1.14.0")
+        api("org.junit.jupiter:junit-jupiter:6.1.2")
+        api("org.junit.platform:junit-platform-launcher:6.1.2")
     }
 }
 
