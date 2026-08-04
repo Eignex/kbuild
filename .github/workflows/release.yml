@@ -2,6 +2,8 @@ name: release
 
 on:
   push:
+    branches:
+      - main
     tags:
       - 'v*'
   workflow_dispatch:
@@ -11,17 +13,36 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          # Tags are needed to derive the next snapshot version on a main push.
+          fetch-depth: 0
 
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: |
-            21
-            25
+          java-version: '25'
           cache: gradle
 
-      - name: Extract Version
-        run: echo "RELEASE_VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_ENV
+      # A tag publishes that exact version as a release. Any other ref publishes a
+      # snapshot of the next patch, so main always has a consumable build.
+      - name: Resolve Version
+        run: |
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            version="${GITHUB_REF_NAME#v}"
+          else
+            # Release tags only; a prerelease tag must not advance the snapshot line.
+            last=$(git tag --list 'v*' --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n1)
+            base="${last:-v0.0.0}"
+            base="${base#v}"
+            IFS=. read -r major minor patch <<<"$base"
+            version="${major:-0}.${minor:-0}.$(( ${patch:-0} + 1 ))-SNAPSHOT"
+          fi
+          echo "RELEASE_VERSION=$version" >> "$GITHUB_ENV"
+          if [[ "$version" == *-SNAPSHOT ]]; then
+            echo "IS_SNAPSHOT=true" >> "$GITHUB_ENV"
+          else
+            echo "IS_SNAPSHOT=false" >> "$GITHUB_ENV"
+          fi
 
       - name: Build and Test
         run: ./gradlew --no-daemon build -PciVersion=${{ env.RELEASE_VERSION }}
@@ -37,7 +58,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Publish to Maven Central (Portal)
-        if: ${{ !contains(env.RELEASE_VERSION, '-') }}
+        if: env.IS_SNAPSHOT == 'false'
         env:
           ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.CENTRAL_PORTAL_USER }}
           ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.CENTRAL_PORTAL_PASSWORD }}
@@ -46,7 +67,7 @@ jobs:
         run: ./gradlew --no-daemon publishToMavenCentral -PciVersion=${{ env.RELEASE_VERSION }}
 
       - name: Publish to Sonatype Snapshots
-        if: ${{ contains(env.RELEASE_VERSION, '-') }}
+        if: env.IS_SNAPSHOT == 'true'
         env:
           ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.CENTRAL_PORTAL_USER }}
           ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.CENTRAL_PORTAL_PASSWORD }}
@@ -55,6 +76,7 @@ jobs:
         run: ./gradlew --no-daemon publishAllPublicationsToSonatypeSnapshotsRepository -PciVersion=${{ env.RELEASE_VERSION }}
 
       - name: Detect pre-release
+        if: github.ref_type == 'tag' && env.IS_SNAPSHOT == 'false'
         run: |
           if [[ "$RELEASE_VERSION" == *"-"* ]]; then
             echo "IS_PRERELEASE=true" >> "$GITHUB_ENV"
@@ -63,6 +85,7 @@ jobs:
           fi
 
       - name: Create GitHub release
+        if: github.ref_type == 'tag' && env.IS_SNAPSHOT == 'false'
         uses: softprops/action-gh-release@v2
         with:
           prerelease: ${{ env.IS_PRERELEASE }}
