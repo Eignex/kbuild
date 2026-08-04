@@ -23,9 +23,7 @@ repositories { mavenCentral() }
 val eignexCli = extensions.create<EignexCliExtension>("eignexCli")
 
 kotlin {
-    // 21, not newer: dists may be launched by wrappers on the system JVM,
-    // so the bytecode must stay runnable there.
-    jvmToolchain(21)
+    jvmToolchain(25)
 
     // Declare targets in your build.gradle.kts:
     //   jvm()
