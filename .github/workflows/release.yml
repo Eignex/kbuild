@@ -57,11 +57,14 @@ jobs:
             echo "IS_SNAPSHOT=false" >> "$GITHUB_ENV"
           fi
 
+      # Snapshots skip this: build.yml already tests the same commit on a main push, and the
+      # publish task compiles what it needs. A tag is verified here before anything is released.
       - name: Build and Test
+        if: env.IS_SNAPSHOT == 'false'
         run: ./gradlew build -PciVersion=${{ env.RELEASE_VERSION }}
 
       - name: Upload test reports
-        if: always()
+        if: always() && env.IS_SNAPSHOT == 'false'
         uses: actions/upload-artifact@v7
         with:
           name: test-reports
