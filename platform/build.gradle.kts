@@ -58,9 +58,14 @@ publishing {
 signing {
     val key = findProperty("signingKey") as String?
     val pass = findProperty("signingPassword") as String?
-    if (key != null && pass != null) {
+    // The snapshot repository runs no component validation, so a signature buys nothing there
+    // and each one doubles the files uploaded per artifact.
+    val isSnapshot = version.toString().endsWith("SNAPSHOT")
+    if (key != null && pass != null && !isSnapshot) {
         useInMemoryPgpKeys(key, pass)
         sign(publishing.publications)
+    } else if (isSnapshot) {
+        logger.lifecycle("Signing skipped: $version is a snapshot.")
     } else {
         logger.lifecycle("Signing disabled: signingKey or signingPassword not defined.")
     }
