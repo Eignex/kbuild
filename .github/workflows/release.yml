@@ -8,6 +8,11 @@ on:
       - 'v*'
   workflow_dispatch:
 
+# Superseded snapshot runs are pointless, but a tag publish must never be cancelled.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref_type != 'tag' }}
+
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -22,7 +27,14 @@ jobs:
         with:
           distribution: temurin
           java-version: '25'
-          cache: gradle
+
+      # Reads the build and configuration caches that build.yml writes, read-only so
+      # release runs never seed them.
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: true
+          cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 
       # A tag publishes that exact version as a release. Any other ref publishes a
       # snapshot of the next patch, so main always has a consumable build.
@@ -46,7 +58,7 @@ jobs:
           fi
 
       - name: Build and Test
-        run: ./gradlew --no-daemon build -PciVersion=${{ env.RELEASE_VERSION }}
+        run: ./gradlew build -PciVersion=${{ env.RELEASE_VERSION }}
 
       - name: Upload test reports
         if: always()
@@ -65,7 +77,7 @@ jobs:
           ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.CENTRAL_PORTAL_PASSWORD }}
           ORG_GRADLE_PROJECT_signingKey: ${{ secrets.SIGNING_KEY }}
           ORG_GRADLE_PROJECT_signingPassword: ${{ secrets.SIGNING_PASSWORD }}
-        run: ./gradlew --no-daemon publishToMavenCentral -PciVersion=${{ env.RELEASE_VERSION }}
+        run: ./gradlew publishToMavenCentral -PciVersion=${{ env.RELEASE_VERSION }}
 
       - name: Publish to Sonatype Snapshots
         if: env.IS_SNAPSHOT == 'true'
@@ -74,7 +86,7 @@ jobs:
           ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.CENTRAL_PORTAL_PASSWORD }}
           ORG_GRADLE_PROJECT_signingKey: ${{ secrets.SIGNING_KEY }}
           ORG_GRADLE_PROJECT_signingPassword: ${{ secrets.SIGNING_PASSWORD }}
-        run: ./gradlew --no-daemon publishAllPublicationsToSonatypeSnapshotsRepository -PciVersion=${{ env.RELEASE_VERSION }}
+        run: ./gradlew publishAllPublicationsToSonatypeSnapshotsRepository -PciVersion=${{ env.RELEASE_VERSION }}
 
       - name: Detect pre-release
         if: github.ref_type == 'tag' && env.IS_SNAPSHOT == 'false'
