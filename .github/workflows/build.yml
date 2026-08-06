@@ -16,6 +16,8 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
+    # A hung worker otherwise burns the full 6h job limit before it is killed.
+    timeout-minutes: 45
 
     steps:
       - name: Checkout
@@ -65,6 +67,8 @@ jobs:
   build-macos:
     name: Build (macOS CLI sample)
     runs-on: macos-latest
+    # Native linking is slower here than on linux, so this gets more headroom than Build.
+    timeout-minutes: 90
 
     steps:
       - name: Checkout
