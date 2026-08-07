@@ -3,6 +3,7 @@ plugins {
     `maven-publish`
     signing
     id("io.github.sgtsilvio.gradle.maven-central-publishing") version "0.5.0"
+    id("org.jetbrains.dokka") version "2.2.0"
 }
 
 group = "com.eignex"
@@ -74,6 +75,10 @@ val sourcesJar = tasks.register<Jar>("sourcesJar") {
 
 val javadocJar = tasks.register<Jar>("javadocJar") {
     archiveClassifier = "javadoc"
+    // Without a source the jar is a 261-byte manifest and nothing else, which Central accepts
+    // but leaves the published artifact with no api docs at all.
+    dependsOn(tasks.named("dokkaGeneratePublicationHtml"))
+    from(layout.buildDirectory.dir("dokka/html"))
 }
 
 publishing {
@@ -83,8 +88,11 @@ publishing {
                 artifact(sourcesJar)
                 artifact(javadocJar)
             }
+            // Read lazily: the plugin-marker publications have not been given their artifactId
+            // yet while this runs, and inside the pom block `artifactId` is the project's.
+            val publication = this
             pom {
-                name.set(artifactId)
+                name.set(providers.provider { publication.artifactId })
                 description.set("Convention plugins for Eignex Kotlin projects")
                 url.set("https://github.com/Eignex/kbuild")
                 licenses {

@@ -53,6 +53,17 @@ publishing {
             }
         }
     }
+
+    repositories {
+        maven {
+            name = "sonatypeSnapshots"
+            url = uri("https://central.sonatype.com/repository/maven-snapshots/")
+            credentials {
+                username = findProperty("mavenCentralUsername") as String? ?: ""
+                password = findProperty("mavenCentralPassword") as String? ?: ""
+            }
+        }
+    }
 }
 
 signing {
