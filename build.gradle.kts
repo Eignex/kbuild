@@ -31,7 +31,7 @@ tasks.named<Test>("test") {
 
 val generatedVersionDir = layout.buildDirectory.dir("generated/kbuildVersion/kotlin")
 
-val generateKbuildVersion by tasks.registering {
+val generateKbuildVersion = tasks.register("generateKbuildVersion") {
     val outDir = generatedVersionDir
     val ver = version.toString()
     inputs.property("version", ver)
@@ -61,12 +61,12 @@ gradlePlugin {
     }
 }
 
-val sourcesJar by tasks.registering(Jar::class) {
+val sourcesJar = tasks.register<Jar>("sourcesJar") {
     archiveClassifier = "sources"
     from(sourceSets.main.get().allSource)
 }
 
-val javadocJar by tasks.registering(Jar::class) {
+val javadocJar = tasks.register<Jar>("javadocJar") {
     archiveClassifier = "javadoc"
 }
 
