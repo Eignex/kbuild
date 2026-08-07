@@ -25,6 +25,12 @@ dependencies {
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
+// Pinned, not inherited: without this the kotlin-dsl plugin targets whatever JDK the daemon runs,
+// so the published bytecode silently follows the CI JDK. Consumers resolve on this value.
+kotlin {
+    jvmToolchain(25)
+}
+
 tasks.named<Test>("test") {
     useJUnitPlatform()
 }
