@@ -114,6 +114,15 @@ publishing {
     }
 }
 
+// The kmp, jvm and cli conventions apply these two themselves, and the samples reach them through
+// the composite build, so nothing ever resolves their markers from a repository.
+// Matched by task name: the publication is not yet attached while these tasks are being created.
+val internalPluginMarkers = listOf("publishLintPluginMarkerMaven", "publishPublishPluginMarkerMaven")
+
+tasks.withType<PublishToMavenRepository>().configureEach {
+    if (internalPluginMarkers.any { name.startsWith(it) }) enabled = false
+}
+
 signing {
     val key = findProperty("signingKey") as String?
     val pass = findProperty("signingPassword") as String?
