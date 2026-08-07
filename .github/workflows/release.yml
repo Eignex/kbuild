@@ -7,6 +7,11 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      dryRun:
+        description: Run the release build and publish nothing
+        type: boolean
+        default: false
 
 # Superseded snapshot runs are pointless, but a tag publish must never be cancelled.
 concurrency:
@@ -37,18 +42,26 @@ jobs:
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 
       # A tag publishes that exact version as a release. Any other ref publishes a
-      # snapshot of the next patch, so main always has a consumable build.
+      # snapshot of the next patch, so main always has a consumable build. A dry run takes the
+      # release path as far as the tests and stops, so the tag path can be exercised on demand.
       - name: Resolve Version
         run: |
-          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
-            version="${GITHUB_REF_NAME#v}"
-          else
-            # Release tags only; a prerelease tag must not advance the snapshot line.
+          next_patch() {
+            # Release tags only; a prerelease tag must not advance the line.
+            local last base major minor patch
             last=$(git tag --list 'v*' --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n1)
             base="${last:-v0.0.0}"
             base="${base#v}"
             IFS=. read -r major minor patch <<<"$base"
-            version="${major:-0}.${minor:-0}.$(( ${patch:-0} + 1 ))-SNAPSHOT"
+            echo "${major:-0}.${minor:-0}.$(( ${patch:-0} + 1 ))"
+          }
+          if [[ "${{ inputs.dryRun }}" == "true" ]]; then
+            version="$(next_patch)"
+            echo "DRY_RUN=true" >> "$GITHUB_ENV"
+          elif [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            version="${GITHUB_REF_NAME#v}"
+          else
+            version="$(next_patch)-SNAPSHOT"
           fi
           echo "RELEASE_VERSION=$version" >> "$GITHUB_ENV"
           if [[ "$version" == *-SNAPSHOT ]]; then
@@ -74,7 +87,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Publish to Maven Central (Portal)
-        if: env.IS_SNAPSHOT == 'false'
+        if: env.IS_SNAPSHOT == 'false' && env.DRY_RUN != 'true'
         env:
           ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.CENTRAL_PORTAL_USER }}
           ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.CENTRAL_PORTAL_PASSWORD }}
