@@ -19,7 +19,7 @@ dependencies {
     implementation("org.jetbrains.dokka:dokka-gradle-plugin:2.2.0")
     implementation("org.jetbrains.kotlinx:kover-gradle-plugin:0.9.9")
     implementation("io.github.sgtsilvio.gradle:gradle-maven-central-publishing:0.5.0")
-    implementation("dev.detekt:detekt-gradle-plugin:2.0.0-alpha.6")
+    implementation("dev.detekt:detekt-gradle-plugin:2.0.0-alpha.3")
 
     testImplementation(gradleTestKit())
     testImplementation("org.junit.jupiter:junit-jupiter:6.1.2")
