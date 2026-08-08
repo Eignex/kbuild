@@ -29,7 +29,14 @@ dependencies {
 // Pinned, not inherited: without this the kotlin-dsl plugin targets whatever JDK the daemon runs,
 // so the published bytecode silently follows the CI JDK. Consumers resolve on this value.
 kotlin {
+    // Compile on 25, emit 21 bytecode. The toolchain the conventions hand to consumers is a
+    // separate decision from the floor this plugin jar imposes on the Gradle daemon loading it.
     jvmToolchain(25)
+    compilerOptions { jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21 }
+}
+
+java {
+    targetCompatibility = JavaVersion.VERSION_21
 }
 
 tasks.named<Test>("test") {
