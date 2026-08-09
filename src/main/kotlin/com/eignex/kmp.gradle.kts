@@ -1,5 +1,7 @@
 import com.eignex.internal.KBUILD_VERSION
+import com.eignex.kbuild.JsTestFrameworkTimeout
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsEnvSpec
+import org.jetbrains.kotlin.gradle.targets.js.testing.KotlinJsTest
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsPlugin
 import org.jetbrains.kotlin.gradle.targets.wasm.nodejs.WasmNodeJsEnvSpec
 import org.jetbrains.kotlin.gradle.targets.wasm.nodejs.WasmNodeJsPlugin
@@ -43,4 +45,46 @@ plugins.withType<WasmNodeJsPlugin> {
 }
 plugins.withType<NodeJsPlugin> {
     the<NodeJsEnvSpec>().version.set(pinnedNodeVersion)
+}
+
+// Mocha's per-test default is 2s, which a loaded CI runner exceeds on nothing more than
+// scheduling. `useMocha { timeout }` only reaches the nodejs tasks; browser tasks run under Karma,
+// which keeps the default, so the timeout has to be set on both paths.
+val jsTestTimeout = "120s"
+
+// Karma reads its extra config from a directory of .js files. The generated one is used instead of
+// the project's own, so anything already in karma.config.d is copied across rather than dropped.
+val karmaConfigDir = layout.buildDirectory.dir("tmp/eignex-karma.config.d")
+val projectKarmaConfigDir = layout.projectDirectory.dir("karma.config.d")
+
+val writeEignexKarmaConfig = tasks.register("writeEignexKarmaConfig") {
+    val out = karmaConfigDir
+    val own = projectKarmaConfigDir
+    val timeoutMs = jsTestTimeout.removeSuffix("s").toInt() * 1000
+    outputs.dir(out)
+    doLast {
+        val dir = out.get().asFile
+        dir.deleteRecursively()
+        dir.mkdirs()
+        // Mutating the nested key rather than config.set keeps the client.args the Kotlin plugin
+        // uses for --tests filtering.
+        dir.resolve("00-eignex-mocha-timeout.js").writeText(
+            """
+            config.client = config.client || {};
+            config.client.mocha = Object.assign({}, config.client.mocha, { timeout: $timeoutMs });
+            """.trimIndent() + "\n"
+        )
+        own.asFile.listFiles { f -> f.isFile && f.name.endsWith(".js") }
+            ?.forEach { it.copyTo(dir.resolve(it.name), overwrite = true) }
+    }
+}
+
+// Only the String and the File are captured; referencing the script's properties from inside the
+// action stores a script reference on the task, which the configuration cache cannot serialize.
+val capturedTimeout = jsTestTimeout
+val capturedKarmaDir = karmaConfigDir.get().asFile
+
+tasks.withType<KotlinJsTest>().configureEach {
+    dependsOn(writeEignexKarmaConfig)
+    onTestFrameworkSet(JsTestFrameworkTimeout(capturedTimeout, capturedKarmaDir))
 }
