@@ -1,4 +1,5 @@
 import com.eignex.internal.KBUILD_VERSION
+import org.jetbrains.kotlin.gradle.dsl.abi.ExperimentalAbiValidation
 import com.eignex.kbuild.JsTestFrameworkTimeout
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsEnvSpec
 import org.jetbrains.kotlin.gradle.targets.js.testing.KotlinJsTest
@@ -19,6 +20,13 @@ repositories { mavenCentral() }
 
 kotlin {
     jvmToolchain(25)
+
+    // Records the published surface under api/ and fails the build when the code and the dump
+    // disagree, so a change to what consumers see arrives as a diff in review. The Kotlin plugin's
+    // own validation, not binary-compatibility-validator, whose bundled ASM cannot read class file
+    // major 69 and so breaks on a JVM 25 target.
+    @OptIn(ExperimentalAbiValidation::class)
+    abiValidation {}
 
     // Declare targets in your build.gradle.kts:
     //   jvm()
@@ -83,6 +91,9 @@ val writeEignexKarmaConfig = tasks.register("writeEignexKarmaConfig") {
 // action stores a script reference on the task, which the configuration cache cannot serialize.
 val capturedTimeout = jsTestTimeout
 val capturedKarmaDir = karmaConfigDir.get().asFile
+
+// The plugin registers the ABI check but does not attach it, so `check` would never run it.
+tasks.named("check") { dependsOn("checkKotlinAbi") }
 
 tasks.withType<KotlinJsTest>().configureEach {
     dependsOn(writeEignexKarmaConfig)
