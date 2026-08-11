@@ -22,7 +22,6 @@ afterEvaluate {
     fun createJavadocJarTask(pubName: String): TaskProvider<Jar> {
         return tasks.register<Jar>("${pubName}JavadocJar") {
             archiveClassifier.set("javadoc")
-            // Use a unique destination directory for each task
             destinationDirectory.set(layout.buildDirectory.dir("javadoc-jars/$pubName"))
 
             val dokkaTask = tasks.findByName("dokkaGenerate")
