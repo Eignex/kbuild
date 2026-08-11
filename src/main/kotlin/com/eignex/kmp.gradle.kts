@@ -1,9 +1,9 @@
 import com.eignex.internal.KBUILD_VERSION
-import org.jetbrains.kotlin.gradle.dsl.abi.ExperimentalAbiValidation
 import com.eignex.kbuild.JsTestFrameworkTimeout
+import org.jetbrains.kotlin.gradle.dsl.abi.ExperimentalAbiValidation
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsEnvSpec
-import org.jetbrains.kotlin.gradle.targets.js.testing.KotlinJsTest
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsPlugin
+import org.jetbrains.kotlin.gradle.targets.js.testing.KotlinJsTest
 import org.jetbrains.kotlin.gradle.targets.wasm.nodejs.WasmNodeJsEnvSpec
 import org.jetbrains.kotlin.gradle.targets.wasm.nodejs.WasmNodeJsPlugin
 
@@ -21,10 +21,8 @@ repositories { mavenCentral() }
 kotlin {
     jvmToolchain(25)
 
-    // Records the published surface under api/ and fails the build when the code and the dump
-    // disagree, so a change to what consumers see arrives as a diff in review. The Kotlin plugin's
-    // own validation, not binary-compatibility-validator, whose bundled ASM cannot read class file
-    // major 69 and so breaks on a JVM 25 target.
+    // The compiler's own validation, not binary-compatibility-validator, whose bundled ASM cannot
+    // read class file major 69 and so fails outright on a JVM 25 target.
     @OptIn(ExperimentalAbiValidation::class)
     abiValidation {}
 
@@ -55,13 +53,12 @@ plugins.withType<NodeJsPlugin> {
     the<NodeJsEnvSpec>().version.set(pinnedNodeVersion)
 }
 
-// Mocha's per-test default is 2s, which a loaded CI runner exceeds on nothing more than
-// scheduling. `useMocha { timeout }` only reaches the nodejs tasks; browser tasks run under Karma,
-// which keeps the default, so the timeout has to be set on both paths.
+// Mocha's 2s per-test default is scheduling noise on a loaded runner. `useMocha { timeout }` reaches
+// only the nodejs tasks; browser tasks run under Karma, which keeps the default, hence both paths.
 val jsTestTimeout = "120s"
 
-// Karma reads its extra config from a directory of .js files. The generated one is used instead of
-// the project's own, so anything already in karma.config.d is copied across rather than dropped.
+// useConfigDirectory replaces the project's karma.config.d rather than adding to it, so anything
+// already there is copied across.
 val karmaConfigDir = layout.buildDirectory.dir("tmp/eignex-karma.config.d")
 val projectKarmaConfigDir = layout.projectDirectory.dir("karma.config.d")
 
@@ -87,15 +84,10 @@ val writeEignexKarmaConfig = tasks.register("writeEignexKarmaConfig") {
     }
 }
 
-// Only the String and the File are captured; referencing the script's properties from inside the
-// action stores a script reference on the task, which the configuration cache cannot serialize.
-val capturedTimeout = jsTestTimeout
-val capturedKarmaDir = karmaConfigDir.get().asFile
-
 // The plugin registers the ABI check but does not attach it, so `check` would never run it.
 tasks.named("check") { dependsOn("checkKotlinAbi") }
 
 tasks.withType<KotlinJsTest>().configureEach {
     dependsOn(writeEignexKarmaConfig)
-    onTestFrameworkSet(JsTestFrameworkTimeout(capturedTimeout, capturedKarmaDir))
+    onTestFrameworkSet(JsTestFrameworkTimeout(jsTestTimeout, karmaConfigDir.get().asFile))
 }

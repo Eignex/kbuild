@@ -69,8 +69,7 @@ publishing {
 signing {
     val key = findProperty("signingKey") as String?
     val pass = findProperty("signingPassword") as String?
-    // The snapshot repository runs no component validation, so a signature buys nothing there
-    // and each one doubles the files uploaded per artifact.
+    // Snapshots are never validated, and each signature doubles the files uploaded.
     val isSnapshot = version.toString().endsWith("SNAPSHOT")
     if (key != null && pass != null && !isSnapshot) {
         useInMemoryPgpKeys(key, pass)

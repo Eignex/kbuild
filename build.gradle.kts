@@ -26,11 +26,9 @@ dependencies {
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
-// Pinned, not inherited: without this the kotlin-dsl plugin targets whatever JDK the daemon runs,
-// so the published bytecode silently follows the CI JDK. Consumers resolve on this value.
+// Left unpinned, kotlin-dsl targets whatever JDK the daemon runs, so the published bytecode
+// follows the CI JDK. This value is the floor Gradle enforces on daemons loading the plugin.
 kotlin {
-    // Compile on 25, emit 21 bytecode. The toolchain the conventions hand to consumers is a
-    // separate decision from the floor this plugin jar imposes on the Gradle daemon loading it.
     jvmToolchain(25)
     compilerOptions { jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21 }
 }
@@ -82,8 +80,7 @@ val sourcesJar = tasks.register<Jar>("sourcesJar") {
 
 val javadocJar = tasks.register<Jar>("javadocJar") {
     archiveClassifier = "javadoc"
-    // Without a source the jar is a 261-byte manifest and nothing else, which Central accepts
-    // but leaves the published artifact with no api docs at all.
+    // Without a source this is a 261-byte manifest, which Central accepts and nobody can read.
     dependsOn(tasks.named("dokkaGeneratePublicationHtml"))
     from(layout.buildDirectory.dir("dokka/html"))
 }
@@ -138,8 +135,7 @@ publishing {
 signing {
     val key = findProperty("signingKey") as String?
     val pass = findProperty("signingPassword") as String?
-    // The snapshot repository runs no component validation, so a signature buys nothing there
-    // and each one doubles the files uploaded per artifact.
+    // Snapshots are never validated, and each signature doubles the files uploaded.
     val isSnapshot = version.toString().endsWith("SNAPSHOT")
     if (key != null && pass != null && !isSnapshot) {
         useInMemoryPgpKeys(key, pass)
