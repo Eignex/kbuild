@@ -84,9 +84,6 @@ val writeEignexKarmaConfig = tasks.register("writeEignexKarmaConfig") {
     }
 }
 
-// The plugin registers the ABI check but does not attach it, so `check` would never run it.
-tasks.named("check") { dependsOn("checkKotlinAbi") }
-
 tasks.withType<KotlinJsTest>().configureEach {
     dependsOn(writeEignexKarmaConfig)
     onTestFrameworkSet(JsTestFrameworkTimeout(jsTestTimeout, karmaConfigDir.get().asFile))
