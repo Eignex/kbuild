@@ -46,13 +46,19 @@ val generatedVersionDir = layout.buildDirectory.dir("generated/kbuildVersion/kot
 val generateKbuildVersion = tasks.register("generateKbuildVersion") {
     val outDir = generatedVersionDir
     val ver = version.toString()
+    // The convention plugins are precompiled scripts, which get no version-catalog accessors, so
+    // the versions they need are handed over as generated constants instead.
+    val detektVer = libs.versions.detekt.get()
     inputs.property("version", ver)
+    inputs.property("detektVersion", detektVer)
     outputs.dir(outDir)
     doLast {
         val file = outDir.get().file("com/eignex/internal/KbuildVersion.kt").asFile
         file.parentFile.mkdirs()
         file.writeText(
-            "package com.eignex.internal\n\ninternal const val KBUILD_VERSION: String = \"$ver\"\n"
+            "package com.eignex.internal\n\n" +
+                "internal const val KBUILD_VERSION: String = \"$ver\"\n" +
+                "internal const val DETEKT_VERSION: String = \"$detektVer\"\n"
         )
     }
 }
