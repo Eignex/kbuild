@@ -2,8 +2,8 @@ plugins {
     `kotlin-dsl`
     `maven-publish`
     signing
-    id("io.github.sgtsilvio.gradle.maven-central-publishing") version "0.5.0"
-    id("org.jetbrains.dokka") version "2.2.0"
+    alias(libs.plugins.maven.central.publishing)
+    alias(libs.plugins.dokka)
 }
 
 group = "com.eignex"
@@ -15,15 +15,15 @@ repositories {
 }
 
 dependencies {
-    implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:2.4.10")
-    implementation("org.jetbrains.dokka:dokka-gradle-plugin:2.2.0")
-    implementation("org.jetbrains.kotlinx:kover-gradle-plugin:0.9.9")
-    implementation("io.github.sgtsilvio.gradle:gradle-maven-central-publishing:0.5.0")
-    implementation("dev.detekt:detekt-gradle-plugin:2.0.0-alpha.6")
+    implementation(libs.kotlin.gradle.plugin)
+    implementation(libs.dokka.gradle.plugin)
+    implementation(libs.kover.gradle.plugin)
+    implementation(libs.maven.central.publishing.gradle.plugin)
+    implementation(libs.detekt.gradle.plugin)
 
     testImplementation(gradleTestKit())
-    testImplementation("org.junit.jupiter:junit-jupiter:6.1.2")
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    testImplementation(libs.junit.jupiter)
+    testRuntimeOnly(libs.junit.platform.launcher)
 }
 
 // Left unpinned, kotlin-dsl targets whatever JDK the daemon runs, so the published bytecode
