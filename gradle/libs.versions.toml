@@ -1,0 +1,26 @@
+[versions]
+kotlin = "2.4.10"
+dokka = "2.2.0"
+kover = "0.9.9"
+detekt = "2.0.0-alpha.6"
+maven-central-publishing = "0.5.0"
+junit = "6.1.2"
+coroutines = "1.11.0"
+serialization = "1.11.0"
+
+[libraries]
+kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
+dokka-gradle-plugin = { module = "org.jetbrains.dokka:dokka-gradle-plugin", version.ref = "dokka" }
+kover-gradle-plugin = { module = "org.jetbrains.kotlinx:kover-gradle-plugin", version.ref = "kover" }
+detekt-gradle-plugin = { module = "dev.detekt:detekt-gradle-plugin", version.ref = "detekt" }
+maven-central-publishing-gradle-plugin = { module = "io.github.sgtsilvio.gradle:gradle-maven-central-publishing", version.ref = "maven-central-publishing" }
+
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher", version.ref = "junit" }
+
+kotlinx-coroutines-bom = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-bom", version.ref = "coroutines" }
+kotlinx-serialization-bom = { module = "org.jetbrains.kotlinx:kotlinx-serialization-bom", version.ref = "serialization" }
+
+[plugins]
+dokka = { id = "org.jetbrains.dokka", version.ref = "dokka" }
+maven-central-publishing = { id = "io.github.sgtsilvio.gradle.maven-central-publishing", version.ref = "maven-central-publishing" }

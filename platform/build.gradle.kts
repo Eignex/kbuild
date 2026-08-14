@@ -14,13 +14,13 @@ javaPlatform {
 
 dependencies {
     // Re-export upstream BOMs so consumers transitively get their pinned versions.
-    api(platform("org.jetbrains.kotlinx:kotlinx-coroutines-bom:1.11.0"))
-    api(platform("org.jetbrains.kotlinx:kotlinx-serialization-bom:1.11.0"))
+    api(platform(libs.kotlinx.coroutines.bom))
+    api(platform(libs.kotlinx.serialization.bom))
 
     // Direct recommendations for libs that don't ship a BOM.
     constraints {
-        api("org.junit.jupiter:junit-jupiter:6.1.2")
-        api("org.junit.platform:junit-platform-launcher:6.1.2")
+        api(libs.junit.jupiter)
+        api(libs.junit.platform.launcher)
     }
 }
 
