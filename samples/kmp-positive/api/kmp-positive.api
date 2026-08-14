@@ -1,0 +1,8 @@
+public final class com/example/CalcKt {
+	public static final fun add (II)I
+}
+
+public final class com/example/Platform_jvmKt {
+	public static final fun platformName ()Ljava/lang/String;
+}
+
