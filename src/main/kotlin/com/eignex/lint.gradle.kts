@@ -1,3 +1,4 @@
+import com.eignex.internal.DETEKT_VERSION
 import dev.detekt.gradle.Detekt
 import dev.detekt.gradle.DetektCreateBaselineTask
 
@@ -6,7 +7,9 @@ plugins {
 }
 
 dependencies {
-    detektPlugins("dev.detekt:detekt-rules-ktlint-wrapper:2.0.0-alpha.3")
+    // A rule set built against a different engine than the one running it is unsupported, so this
+    // tracks the detekt version rather than carrying its own.
+    detektPlugins("dev.detekt:detekt-rules-ktlint-wrapper:$DETEKT_VERSION")
 }
 
 // The shared config the detekt tasks consume. Materialized by a task (below) rather than
