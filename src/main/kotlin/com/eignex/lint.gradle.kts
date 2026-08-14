@@ -100,6 +100,18 @@ tasks.withType<DetektCreateBaselineTask>().configureEach {
     jvmTarget = "25"
 }
 
+// On a multiplatform project the detekt plugin also creates a JVM-shaped pair that hands
+// commonMain and jvmMain to one compilation, so every expect sits in the same module as its
+// actual. Resolution then fails and rules that cannot resolve a symbol either go quiet or
+// misfire — an actual reads as an undocumented standalone function. The per-source-set tasks
+// analyse the same files with the fragments separated, and check/lintDocs depend on every
+// Detekt task, so dropping the pair costs no coverage.
+pluginManager.withPlugin("org.jetbrains.kotlin.multiplatform") {
+    tasks.matching { it.name == "detektMainJvm" || it.name == "detektTestJvm" }.configureEach {
+        enabled = false
+    }
+}
+
 // Kotlin/Native (and Android dex) reject characters in backtick identifiers that the JVM
 // accepts, so a test name like `foo (#389)` compiles for jvm but fails the native compile
 // with a cryptic error. Catch it here, early and with a file:line, instead of in the build.

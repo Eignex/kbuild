@@ -16,8 +16,8 @@ run_positive() {
     fi
 }
 
-# A targeted positive run — one task rather than the full :check. Used by the kmp sample,
-# whose only job is to instantiate a wasmWasi module on the pinned node.
+# A targeted positive run — one task rather than the full :check, for a target :check does not
+# reach, such as instantiating a wasmWasi module on the pinned node.
 run_task() {
     local proj="$1" task="$2"
     echo ">>> task: $proj:$task"
@@ -60,6 +60,7 @@ run_cli() {
 run_positive jvm-positive
 # Exercise the com.eignex.jvm publish path (the mavenJava publication) against local staging.
 run_task jvm-positive publishMavenJavaPublicationToLocalStagingRepository
+run_positive kmp-positive
 run_task kmp-positive wasmWasiNodeTest
 run_positive cli-positive
 run_cli cli-positive runJvm "hello kbuild"
