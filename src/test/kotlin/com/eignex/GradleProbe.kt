@@ -42,23 +42,27 @@ internal fun BuildResult.assertOutcome(task: String, outcome: TaskOutcome) {
     assertEquals(outcome, task(task)?.outcome, "outcome of $task in:\n$output")
 }
 
+/** A probe project named `probe` whose build script is [buildScript]. */
+internal fun probe(dir: File, buildScript: String): GradleProbe = GradleProbe(dir).apply {
+    write("settings.gradle.kts", "rootProject.name = \"probe\"\n")
+    write("build.gradle.kts", buildScript.trimIndent() + "\n")
+}
+
 /**
  * A probe applying com.eignex.kmp with a single JVM target. Publishing is switched off so no
  * signing or credentials are needed, and one common source file gives the ABI check something
  * to look at.
  */
-internal fun kmpProbe(dir: File): GradleProbe = GradleProbe(dir).apply {
-    write("settings.gradle.kts", "rootProject.name = \"probe\"\n")
-    write(
-        "build.gradle.kts",
-        """
-        plugins {
-            id("com.eignex.kmp")
-        }
-        eignexPublish { publish.set(false) }
-        kotlin { jvm() }
-        """.trimIndent() + "\n"
-    )
+internal fun kmpProbe(dir: File): GradleProbe = probe(
+    dir,
+    """
+    plugins {
+        id("com.eignex.kmp")
+    }
+    eignexPublish { publish.set(false) }
+    kotlin { jvm() }
+    """
+).apply {
     write("src/commonMain/kotlin/Probe.kt", "internal class Probe\n")
 }
 
@@ -66,17 +70,14 @@ internal fun kmpProbe(dir: File): GradleProbe = GradleProbe(dir).apply {
  * A probe applying com.eignex.lint on top of a plain Kotlin/JVM project. The Kotlin plugin needs
  * no version: TestKit injects it along with the plugin under test.
  */
-internal fun lintProbe(dir: File): GradleProbe = GradleProbe(dir).apply {
-    write("settings.gradle.kts", "rootProject.name = \"probe\"\n")
-    write(
-        "build.gradle.kts",
-        """
-        plugins {
-            kotlin("jvm")
-            id("com.eignex.lint")
-        }
-        repositories { mavenCentral() }
-        kotlin { jvmToolchain(21) }
-        """.trimIndent() + "\n"
-    )
-}
+internal fun lintProbe(dir: File): GradleProbe = probe(
+    dir,
+    """
+    plugins {
+        kotlin("jvm")
+        id("com.eignex.lint")
+    }
+    repositories { mavenCentral() }
+    kotlin { jvmToolchain(21) }
+    """
+)

@@ -1,6 +1,5 @@
 package com.eignex
 
-import org.gradle.testkit.runner.GradleRunner
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -17,8 +16,8 @@ class JvmPluginTest {
     // that check while being useless, hence the dokka dependency.
     @Test
     fun `publishing pulls in the sources jar and a dokka-built javadoc jar`(@TempDir dir: File) {
-        writeProbe(dir)
-        val output = runProbe(dir, "publishMavenJavaPublicationToLocalStagingRepository", "--dry-run")
+        val output = writeProbe(dir)
+            .build("publishMavenJavaPublicationToLocalStagingRepository", "--dry-run").output
         assertTrue(":sourcesJar SKIPPED" in output) { "expected a sources jar, got:\n$output" }
         assertTrue(":javadocJar SKIPPED" in output) { "expected a javadoc jar, got:\n$output" }
         assertTrue(":dokkaGenerate SKIPPED" in output) {
@@ -28,8 +27,7 @@ class JvmPluginTest {
 
     @Test
     fun `check runs detekt and the tests`(@TempDir dir: File) {
-        writeProbe(dir)
-        val output = runProbe(dir, "check", "--dry-run")
+        val output = writeProbe(dir).build("check", "--dry-run").output
         // com.eignex.lint is applied by this plugin, so a jvm module gets the rules for free.
         assertTrue(":detekt SKIPPED" in output) { "expected detekt in the check graph, got:\n$output" }
         assertTrue(":test SKIPPED" in output) { output }
@@ -37,10 +35,10 @@ class JvmPluginTest {
 
     @Test
     fun `the platform bom is on the compile and test classpaths`(@TempDir dir: File) {
-        writeProbe(dir)
-        val compile = runProbe(dir, "dependencies", "--configuration", "compileClasspath")
+        val probe = writeProbe(dir)
+        val compile = probe.build("dependencies", "--configuration", "compileClasspath").output
         assertTrue("com.eignex:kbuild-platform" in compile) { compile }
-        val test = runProbe(dir, "dependencies", "--configuration", "testCompileClasspath")
+        val test = probe.build("dependencies", "--configuration", "testCompileClasspath").output
         assertTrue("com.eignex:kbuild-platform" in test) { test }
     }
 
@@ -49,7 +47,7 @@ class JvmPluginTest {
     // invisible to any configuration-time assertion.
     @Test
     fun `the test task discovers jupiter tests`(@TempDir dir: File) {
-        writeProbe(
+        val probe = writeProbe(
             dir,
             // Version pinned here because the probe resolves against a stub platform BOM; the real
             // com.eignex:kbuild-platform constrains junit for consumers.
@@ -60,9 +58,8 @@ class JvmPluginTest {
             }
             """.trimIndent(),
         )
-        val test = dir.resolve("src/test/kotlin/com/example/SampleTest.kt")
-        test.parentFile.mkdirs()
-        test.writeText(
+        probe.write(
+            "src/test/kotlin/com/example/SampleTest.kt",
             """
             package com.example
 
@@ -76,46 +73,37 @@ class JvmPluginTest {
             """.trimIndent() + "\n"
         )
 
-        runProbe(dir, "test")
+        probe.build("test")
 
         // The result XML, not the log: with JUnit 4 the task still succeeds having discovered
         // nothing, and the class name shows up in compiler output either way.
-        val results = dir.resolve("build/test-results/test/TEST-com.example.SampleTest.xml")
+        val results = probe.file("build/test-results/test/TEST-com.example.SampleTest.xml")
         assertTrue(results.isFile) {
-            "expected the jupiter test to be executed, found ${dir.resolve("build/test-results/test").list()?.toList()}"
+            "expected the jupiter test to be executed, found ${probe.file("build/test-results/test").list()?.toList()}"
         }
         assertTrue("""tests="1" skipped="0" failures="0" errors="0"""" in results.readText()) {
             results.readText()
         }
     }
 
-    private fun writeProbe(dir: File, extraDependencies: String = "") {
-        dir.resolve("settings.gradle.kts").writeText("rootProject.name = \"probe\"\n")
-        val platformRepo = writeFakePlatformRepo(dir)
-        dir.resolve("build.gradle.kts").writeText(
-            """
-            plugins {
-                id("com.eignex.jvm")
-            }
-            $platformRepo
-            eignexPublish {
-                description.set("A probe module.")
-                githubRepo.set("Eignex/probe")
-            }
-            $extraDependencies
-            """.trimIndent() + "\n"
-        )
-        val src = dir.resolve("src/main/kotlin/com/example/Sample.kt")
-        src.parentFile.mkdirs()
+    private fun writeProbe(dir: File, extraDependencies: String = ""): GradleProbe = probe(
+        dir,
+        """
+        plugins {
+            id("com.eignex.jvm")
+        }
+        ${writeFakePlatformRepo(dir)}
+        eignexPublish {
+            description.set("A probe module.")
+            githubRepo.set("Eignex/probe")
+        }
+        $extraDependencies
+        """
+    ).apply {
         // Documented and internal: com.eignex.lint's KDoc rules apply to this source too.
-        src.writeText("package com.example\n\n/** Returns a greeting. */\ninternal fun greeting(): String = \"hi\"\n")
+        write(
+            "src/main/kotlin/com/example/Sample.kt",
+            "package com.example\n\n/** Returns a greeting. */\ninternal fun greeting(): String = \"hi\"\n"
+        )
     }
-
-    private fun runProbe(dir: File, vararg args: String): String =
-        GradleRunner.create()
-            .withProjectDir(dir)
-            .withArguments(*args, "--stacktrace")
-            .withPluginClasspath()
-            .build()
-            .output
 }
