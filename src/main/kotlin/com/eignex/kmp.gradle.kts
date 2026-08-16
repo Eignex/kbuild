@@ -1,5 +1,6 @@
-import com.eignex.internal.KBUILD_VERSION
 import com.eignex.kbuild.JsTestFrameworkTimeout
+import com.eignex.kbuild.KBUILD_JVM_TOOLCHAIN
+import com.eignex.kbuild.applyKbuildCommonDependencies
 import org.jetbrains.kotlin.gradle.dsl.abi.ExperimentalAbiValidation
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsEnvSpec
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsPlugin
@@ -19,7 +20,7 @@ apply(plugin = "com.eignex.lint")
 repositories { mavenCentral() }
 
 kotlin {
-    jvmToolchain(25)
+    jvmToolchain(KBUILD_JVM_TOOLCHAIN)
 
     // The compiler's own validation, not binary-compatibility-validator, whose bundled ASM cannot
     // read class file major 69 and so fails outright on a JVM 25 target.
@@ -31,15 +32,7 @@ kotlin {
     //   js { browser(); nodejs() }
     //   linuxX64(); macosX64(); macosArm64(); mingwX64()
 
-    sourceSets {
-        commonMain.dependencies {
-            implementation(project.dependencies.platform("com.eignex:kbuild-platform:$KBUILD_VERSION"))
-        }
-        commonTest.dependencies {
-            implementation(project.dependencies.platform("com.eignex:kbuild-platform:$KBUILD_VERSION"))
-            implementation(kotlin("test"))
-        }
-    }
+    applyKbuildCommonDependencies(project)
 }
 
 // Node 25's V8 has stable exnref (wasmWasi's Kotlin 2.3 output); node 24's is experimental

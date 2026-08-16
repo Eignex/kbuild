@@ -1,4 +1,5 @@
 import com.eignex.internal.DETEKT_VERSION
+import com.eignex.kbuild.KBUILD_JVM_TOOLCHAIN
 import dev.detekt.gradle.Detekt
 import dev.detekt.gradle.DetektCreateBaselineTask
 
@@ -90,7 +91,7 @@ detekt {
 
 tasks.withType<Detekt>().configureEach {
     dependsOn(writeEignexDetektConfig)
-    jvmTarget = "25"
+    jvmTarget = KBUILD_JVM_TOOLCHAIN.toString()
     autoCorrect = true
     reports {
         html.required.set(true)
@@ -100,7 +101,7 @@ tasks.withType<Detekt>().configureEach {
 
 tasks.withType<DetektCreateBaselineTask>().configureEach {
     dependsOn(writeEignexDetektConfig)
-    jvmTarget = "25"
+    jvmTarget = KBUILD_JVM_TOOLCHAIN.toString()
 }
 
 // On a multiplatform project the detekt plugin also creates a JVM-shaped pair that hands
