@@ -27,8 +27,8 @@ class LintPluginRulesTest {
         // UnnecessaryFullyQualifiedName needs type resolution, which only detektMain has.
         probe.assertDetektReports(
             task = "detektMain",
-            finding = "HasFqn.kt:2:36 Fully qualified function call 'kotlin.collections.listOf' " +
-                "can be replaced with an import. [UnnecessaryFullyQualifiedName]"
+            at = "HasFqn.kt:2:36",
+            rule = "UnnecessaryFullyQualifiedName"
         )
     }
 
@@ -39,8 +39,8 @@ class LintPluginRulesTest {
 
         probe.assertDetektReports(
             task = "detekt",
-            finding = "Undocumented.kt:1:14 Undocumented is missing required documentation. " +
-                "[UndocumentedPublicClass]"
+            at = "Undocumented.kt:1:14",
+            rule = "UndocumentedPublicClass"
         )
     }
 
@@ -57,8 +57,8 @@ class LintPluginRulesTest {
 
         probe.assertDetektReports(
             task = "detekt",
-            finding = "BadSentence.kt:1:4 The first sentence of this KDoc does not end with the " +
-                "correct punctuation. [EndOfSentenceFormat]"
+            at = "BadSentence.kt:1:4",
+            rule = "EndOfSentenceFormat"
         )
     }
 
@@ -79,8 +79,8 @@ class LintPluginRulesTest {
 
         probe.assertDetektReports(
             task = "detekt",
-            finding = "UsesDeprecatedTag.kt:1:1 @deprecated tag block does not properly report " +
-                "deprecation in Kotlin, use @Deprecated annotation instead [DeprecatedBlockTag]"
+            at = "UsesDeprecatedTag.kt:1:1",
+            rule = "DeprecatedBlockTag"
         )
     }
 
@@ -114,13 +114,20 @@ class LintPluginRulesTest {
         }
     }
 
-    /** Fails [task] and asserts detekt printed exactly [finding] (a `file:line:col … [Rule]` line). */
-    private fun GradleProbe.assertDetektReports(task: String, finding: String) {
+    /**
+     * Fails [task] and asserts detekt reported [rule] at [at] (a `file:line:col` position).
+     *
+     * The finding's prose is deliberately not asserted: it is the detekt engine's wording and
+     * changes on upgrades, whereas the position and rule id are what these tests lock in.
+     */
+    private fun GradleProbe.assertDetektReports(task: String, at: String, rule: String) {
         val result = buildAndFail(task)
 
         result.assertOutcome(":$task", TaskOutcome.FAILED)
-        assertTrue(result.output.lineSequence().any { it.trimEnd().endsWith(finding) }) {
-            "expected detekt to report \"$finding\", got:\n${result.output}"
+        val reported = result.output.lineSequence().any { line ->
+            val finding = line.trimEnd()
+            "$at " in finding && finding.endsWith("[$rule]")
         }
+        assertTrue(reported) { "expected detekt to report [$rule] at $at, got:\n${result.output}" }
     }
 }
