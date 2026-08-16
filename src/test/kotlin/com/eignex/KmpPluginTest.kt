@@ -1,6 +1,8 @@
 package com.eignex
 
-import org.gradle.testkit.runner.GradleRunner
+import org.gradle.testkit.runner.BuildResult
+import org.gradle.testkit.runner.TaskOutcome
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -14,67 +16,53 @@ import java.io.File
 class KmpPluginTest {
 
     @Test
-    fun `karma config carries the mocha timeout`(@TempDir dir: File) {
-        writeProbe(dir)
-        runProbe(dir, "writeEignexKarmaConfig")
+    fun `karma config sets the mocha timeout to 120 seconds`(@TempDir dir: File) {
+        val probe = kmpProbe(dir)
 
-        val generated = dir.resolve("build/tmp/eignex-karma.config.d/00-eignex-mocha-timeout.js")
-        assertTrue(generated.isFile) { "expected a generated karma config at $generated" }
-        assertTrue("timeout: 120000" in generated.readText()) {
-            "expected the mocha timeout in the generated config, got:\n${generated.readText()}"
-        }
+        val result = probe.build(WRITE_KARMA_CONFIG)
+
+        result.assertOutcome(":$WRITE_KARMA_CONFIG", TaskOutcome.SUCCESS)
+        assertEquals(
+            """
+            config.client = config.client || {};
+            config.client.mocha = Object.assign({}, config.client.mocha, { timeout: 120000 });
+            """.trimIndent() + "\n",
+            probe.file("$GENERATED_KARMA_DIR/00-eignex-mocha-timeout.js").readText()
+        )
     }
 
     @Test
-    fun `karma config keeps the project's own entries`(@TempDir dir: File) {
-        writeProbe(dir)
-        val own = dir.resolve("karma.config.d/zz-project.js")
-        own.parentFile.mkdirs()
-        own.writeText("config.reporters = ['dots'];\n")
+    fun `karma config copies the project's own entries verbatim`(@TempDir dir: File) {
+        val probe = kmpProbe(dir)
+        val own = "config.reporters = ['dots'];\n"
+        probe.write("karma.config.d/zz-project.js", own)
 
-        runProbe(dir, "writeEignexKarmaConfig")
+        probe.build(WRITE_KARMA_CONFIG)
 
         // useConfigDirectory replaces the project's directory rather than adding to it, so the
         // generated one has to carry these across or they are silently dropped.
-        val copied = dir.resolve("build/tmp/eignex-karma.config.d/zz-project.js")
-        assertTrue(copied.isFile) { "expected the project's own karma config to be copied to $copied" }
-        assertTrue("config.reporters" in copied.readText()) {
-            "expected the copied file to keep its contents, got:\n${copied.readText()}"
-        }
+        assertEquals(own, probe.file("$GENERATED_KARMA_DIR/zz-project.js").readText())
     }
 
     // The Kotlin plugin attaches this itself on the current version. Asserted anyway, because the
     // property worth holding is that `check` covers the ABI, not who wired it up.
     @Test
     fun `check runs the ABI check`(@TempDir dir: File) {
-        writeProbe(dir)
-        val result = runProbe(dir, "check", "--dry-run")
-        assertTrue("checkKotlinAbi" in result) {
-            "expected checkKotlinAbi in the check task graph, got:\n$result"
+        val result = kmpProbe(dir).build("check", "--dry-run")
+
+        assertTrue(":checkKotlinAbi" in result.dryRunTasks()) {
+            "expected checkKotlinAbi in the check task graph, got:\n${result.output}"
         }
     }
 
-    private fun writeProbe(dir: File) {
-        dir.resolve("settings.gradle.kts").writeText("rootProject.name = \"probe\"\n")
-        dir.resolve("build.gradle.kts").writeText(
-            """
-            plugins {
-                id("com.eignex.kmp")
-            }
-            eignexPublish { publish.set(false) }
-            kotlin { jvm() }
-            """.trimIndent() + "\n"
-        )
-        val src = dir.resolve("src/commonMain/kotlin/Probe.kt")
-        src.parentFile.mkdirs()
-        src.writeText("internal class Probe\n")
-    }
+    /** The task paths a `--dry-run` build reported, each printed as `:path SKIPPED`. */
+    private fun BuildResult.dryRunTasks(): List<String> =
+        output.lineSequence().mapNotNull { line ->
+            line.trim().removeSuffix(" SKIPPED").takeIf { it != line.trim() && it.startsWith(":") }
+        }.toList()
 
-    private fun runProbe(dir: File, vararg args: String): String =
-        GradleRunner.create()
-            .withProjectDir(dir)
-            .withArguments(*args, "--stacktrace")
-            .withPluginClasspath()
-            .build()
-            .output
+    private companion object {
+        const val WRITE_KARMA_CONFIG = "writeEignexKarmaConfig"
+        const val GENERATED_KARMA_DIR = "build/tmp/eignex-karma.config.d"
+    }
 }

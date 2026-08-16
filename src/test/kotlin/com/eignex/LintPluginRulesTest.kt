@@ -1,48 +1,72 @@
 package com.eignex
 
-import org.gradle.testkit.runner.BuildResult
-import org.gradle.testkit.runner.GradleRunner
+import org.gradle.testkit.runner.TaskOutcome
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
 
 /**
- * TestKit harness that materializes a Gradle project applying com.eignex.lint and asserts
- * detekt fires the expected rule. One test per rule we want to lock in.
+ * TestKit harness that materializes a Gradle project applying com.eignex.lint and asserts detekt
+ * reports the expected finding. One test per rule we want to lock in, each asserting the whole
+ * finding — position, message and rule — so a rule that fires for the wrong reason still fails.
  */
 class LintPluginRulesTest {
 
     @Test
-    fun `UnnecessaryFullyQualifiedName fails detektMain`(@TempDir dir: File) {
-        writeSource(dir, "HasFqn.kt", "fun build(): List<String> = kotlin.collections.listOf(\"x\")\n")
-        runAndAssertRule(dir, task = "detektMain", rule = "UnnecessaryFullyQualifiedName")
+    fun `a fully qualified call is reported by detektMain`(@TempDir dir: File) {
+        val probe = lintProbe(dir)
+        probe.write(
+            "src/main/kotlin/HasFqn.kt",
+            """
+            /** Builds a list. */
+            public fun build(): List<String> = kotlin.collections.listOf("x")
+            """.trimIndent() + "\n"
+        )
+
+        // UnnecessaryFullyQualifiedName needs type resolution, which only detektMain has.
+        probe.assertDetektReports(
+            task = "detektMain",
+            at = "HasFqn.kt:2:36",
+            rule = "UnnecessaryFullyQualifiedName"
+        )
     }
 
     @Test
-    fun `UndocumentedPublicClass fails detekt`(@TempDir dir: File) {
-        writeSource(dir, "Undocumented.kt", "public class Undocumented\n")
-        runAndAssertRule(dir, task = "detekt", rule = "UndocumentedPublicClass")
+    fun `an undocumented public class is reported by detekt`(@TempDir dir: File) {
+        val probe = lintProbe(dir)
+        probe.write("src/main/kotlin/Undocumented.kt", "public class Undocumented\n")
+
+        probe.assertDetektReports(
+            task = "detekt",
+            at = "Undocumented.kt:1:14",
+            rule = "UndocumentedPublicClass"
+        )
     }
 
     @Test
-    fun `EndOfSentenceFormat fails detekt`(@TempDir dir: File) {
-        writeSource(
-            dir,
-            "BadSentence.kt",
+    fun `a KDoc sentence without terminating punctuation is reported by detekt`(@TempDir dir: File) {
+        val probe = lintProbe(dir)
+        probe.write(
+            "src/main/kotlin/BadSentence.kt",
             """
             /** A KDoc without a terminating period */
             public class BadSentence
             """.trimIndent() + "\n"
         )
-        runAndAssertRule(dir, task = "detekt", rule = "EndOfSentenceFormat")
+
+        probe.assertDetektReports(
+            task = "detekt",
+            at = "BadSentence.kt:1:4",
+            rule = "EndOfSentenceFormat"
+        )
     }
 
     @Test
-    fun `DeprecatedBlockTag fails detekt`(@TempDir dir: File) {
-        writeSource(
-            dir,
-            "UsesDeprecatedTag.kt",
+    fun `a deprecated KDoc block tag is reported by detekt`(@TempDir dir: File) {
+        val probe = lintProbe(dir)
+        probe.write(
+            "src/main/kotlin/UsesDeprecatedTag.kt",
             """
             /**
              * Uses the deprecated KDoc tag.
@@ -52,60 +76,58 @@ class LintPluginRulesTest {
             public class UsesDeprecatedTag
             """.trimIndent() + "\n"
         )
-        runAndAssertRule(dir, task = "detekt", rule = "DeprecatedBlockTag")
-    }
 
-    private fun writeSource(dir: File, name: String, body: String) {
-        dir.resolve("settings.gradle.kts").writeText("rootProject.name = \"probe\"\n")
-        dir.resolve("build.gradle.kts").writeText(
-            """
-            plugins {
-                kotlin("jvm") version "2.3.20"
-                id("com.eignex.lint")
-            }
-            repositories { mavenCentral() }
-            kotlin { jvmToolchain(21) }
-            """.trimIndent()
+        probe.assertDetektReports(
+            task = "detekt",
+            at = "UsesDeprecatedTag.kt:1:1",
+            rule = "DeprecatedBlockTag"
         )
-        val src = dir.resolve("src/main/kotlin/$name")
-        src.parentFile.mkdirs()
-        src.writeText(body)
     }
 
     @Test
-    fun `detekt survives configuration cache reuse after build dir is cleared`(@TempDir dir: File) {
+    fun `detekt regenerates its config when the configuration cache is reused after build is cleared`(
+        @TempDir dir: File,
+    ) {
+        val probe = lintProbe(dir)
         // A clean source file: internal (no undocumented-public rules) and nothing for the
         // style/comment rules to fire on.
-        writeSource(dir, "Clean.kt", "internal class Clean\n")
-        val args = arrayOf("detekt", "--configuration-cache", "--stacktrace")
+        probe.write("src/main/kotlin/Clean.kt", "internal class Clean\n")
 
         // First run stores the configuration cache and writes the generated detekt config.
-        GradleRunner.create().withProjectDir(dir).withArguments(*args).withPluginClasspath().build()
+        probe.build("detekt", "--configuration-cache")
 
         // Simulate a fresh CI runner that restored only the Gradle home: the project-local
         // configuration cache (.gradle/) survives, but build/ — and the generated config in
         // it — does not.
-        dir.resolve("build").deleteRecursively()
+        probe.file("build").deleteRecursively()
 
         // The reuse run skips configuration, so the config must be regenerated by a task.
-        val result = GradleRunner.create()
-            .withProjectDir(dir)
-            .withArguments(*args)
-            .withPluginClasspath()
-            .build()
+        val result = probe.build("detekt", "--configuration-cache")
+
         assertTrue("Reusing configuration cache" in result.output) {
             "expected the second run to reuse the configuration cache, got:\n${result.output}"
         }
+        result.assertOutcome(":writeEignexDetektConfig", TaskOutcome.SUCCESS)
+        result.assertOutcome(":detekt", TaskOutcome.SUCCESS)
+        assertTrue(probe.file("build/tmp/eignex-detekt.yml").isFile) {
+            "expected the detekt config to be regenerated, got:\n${result.output}"
+        }
     }
 
-    private fun runAndAssertRule(dir: File, task: String, rule: String) {
-        val result: BuildResult = GradleRunner.create()
-            .withProjectDir(dir)
-            .withArguments(task, "--stacktrace")
-            .withPluginClasspath()
-            .buildAndFail()
-        assertTrue("[$rule]" in result.output) {
-            "expected [$rule] in detekt output, got:\n${result.output}"
+    /**
+     * Fails [task] and asserts detekt reported [rule] at [at] (a `file:line:col` position).
+     *
+     * The finding's prose is deliberately not asserted: it is the detekt engine's wording and
+     * changes on upgrades, whereas the position and rule id are what these tests lock in.
+     */
+    private fun GradleProbe.assertDetektReports(task: String, at: String, rule: String) {
+        val result = buildAndFail(task)
+
+        result.assertOutcome(":$task", TaskOutcome.FAILED)
+        val reported = result.output.lineSequence().any { line ->
+            val finding = line.trimEnd()
+            "$at " in finding && finding.endsWith("[$rule]")
         }
+        assertTrue(reported) { "expected detekt to report [$rule] at $at, got:\n${result.output}" }
     }
 }
