@@ -1,6 +1,5 @@
 package com.eignex
 
-import org.gradle.testkit.runner.GradleRunner
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -19,10 +18,10 @@ class CliPluginTest {
 
     @Test
     fun `build info lands in the main class package with project-derived defaults`(@TempDir dir: File) {
-        writeProbe(dir)
-        runProbe(dir, "generateCliBuildInfo")
+        val probe = writeProbe(dir)
+        probe.build("generateCliBuildInfo")
 
-        val generated = dir.resolve("build/generated/eignexCliBuildInfo/kotlin/com/example/BuildInfo.kt")
+        val generated = probe.file("$GENERATED/com/example/BuildInfo.kt")
         assertTrue(generated.isFile) { "expected generated BuildInfo at $generated" }
         val text = generated.readText()
         // Defaults: name from the project, id from the group the plugin sets, version from the
@@ -34,16 +33,16 @@ class CliPluginTest {
 
     @Test
     fun `build info version follows the ciVersion property`(@TempDir dir: File) {
-        writeProbe(dir)
-        runProbe(dir, "generateCliBuildInfo", "-PciVersion=1.2.3")
+        val probe = writeProbe(dir)
+        probe.build("generateCliBuildInfo", "-PciVersion=1.2.3")
 
-        val text = dir.resolve("build/generated/eignexCliBuildInfo/kotlin/com/example/BuildInfo.kt").readText()
+        val text = probe.file("$GENERATED/com/example/BuildInfo.kt").readText()
         assertTrue("""const val VERSION: String = "1.2.3"""" in text) { text }
     }
 
     @Test
     fun `explicit extension values win over the defaults and are escaped`(@TempDir dir: File) {
-        writeProbe(
+        val probe = writeProbe(
             dir,
             cliBlock = """
             eignexCli {
@@ -55,10 +54,10 @@ class CliPluginTest {
             }
             """.trimIndent(),
         )
-        runProbe(dir, "generateCliBuildInfo")
+        probe.build("generateCliBuildInfo")
 
         // buildInfoPackage overrides the mainClass-derived package, so the file moves with it.
-        val generated = dir.resolve("build/generated/eignexCliBuildInfo/kotlin/com/other/tool/BuildInfo.kt")
+        val generated = probe.file("$GENERATED/com/other/tool/BuildInfo.kt")
         assertTrue(generated.isFile) { "expected generated BuildInfo at $generated" }
         val text = generated.readText()
         assertTrue(text.startsWith("package com.other.tool")) { text }
@@ -70,19 +69,18 @@ class CliPluginTest {
 
     @Test
     fun `build info package falls back to the group when mainClass is unset`(@TempDir dir: File) {
-        writeProbe(dir, cliBlock = "eignexCli { entryPoint = \"com.example.main\" }")
-        runProbe(dir, "generateCliBuildInfo")
+        val probe = writeProbe(dir, cliBlock = "eignexCli { entryPoint = \"com.example.main\" }")
+        probe.build("generateCliBuildInfo")
 
-        val generated = dir.resolve("build/generated/eignexCliBuildInfo/kotlin/com/eignex/BuildInfo.kt")
-        assertTrue(generated.isFile) { "expected the group-derived package, found ${listGenerated(dir)}" }
+        val generated = probe.file("$GENERATED/com/eignex/BuildInfo.kt")
+        assertTrue(generated.isFile) { "expected the group-derived package, found ${probe.listGenerated()}" }
     }
 
     // srcDir(taskProvider) is what makes every target see BuildInfo; if that wiring is lost the
     // generator still runs standalone but no compilation depends on it.
     @Test
     fun `compiling common code depends on the build info generator`(@TempDir dir: File) {
-        writeProbe(dir)
-        val output = runProbe(dir, "compileKotlinJvm", "--dry-run")
+        val output = writeProbe(dir).build("compileKotlinJvm", "--dry-run").output
         assertTrue(":generateCliBuildInfo SKIPPED" in output) {
             "expected generateCliBuildInfo in the jvm compile task graph, got:\n$output"
         }
@@ -90,8 +88,7 @@ class CliPluginTest {
 
     @Test
     fun `releaseAssets is registered and pulls in the jvm distribution zip`(@TempDir dir: File) {
-        writeProbe(dir)
-        val output = runProbe(dir, "releaseAssets", "--dry-run")
+        val output = writeProbe(dir).build("releaseAssets", "--dry-run").output
         assertTrue(":jvmDistZip SKIPPED" in output) {
             "expected releaseAssets to depend on jvmDistZip, got:\n$output"
         }
@@ -103,10 +100,10 @@ class CliPluginTest {
     // naming and the checksum file — is the same code path for both kinds of asset.
     @Test
     fun `releaseAssets packages the jvm zip under the release name with a matching checksum`(@TempDir dir: File) {
-        writeProbe(dir)
-        runProbe(dir, "releaseAssets", "-PciVersion=4.5.6")
+        val probe = writeProbe(dir)
+        probe.build("releaseAssets", "-PciVersion=4.5.6")
 
-        val assets = dir.resolve("build/release-assets")
+        val assets = probe.file("build/release-assets")
         val zip = assets.resolve("probe-4.5.6-jvm.zip")
         assertTrue(zip.isFile) {
             "expected <name>-<version>-jvm.zip, found ${assets.list()?.toList()}"
@@ -127,9 +124,9 @@ class CliPluginTest {
     fun `releaseAssets links only host-buildable release binaries`(@TempDir dir: File) {
         val host = hostNativeTarget()
         val foreign = if (host == "linuxX64") "macosArm64" else "linuxX64"
-        writeProbe(dir, targets = "jvm()\n    $host()\n    $foreign()")
+        val probe = writeProbe(dir, targets = "jvm()\n    $host()\n    $foreign()")
 
-        val output = runProbe(dir, "releaseAssets", "--dry-run")
+        val output = probe.build("releaseAssets", "--dry-run").output
         assertTrue(":linkReleaseExecutable${host.capitalizeFirst()} SKIPPED" in output) {
             "expected the host release link task in the graph, got:\n$output"
         }
@@ -148,8 +145,8 @@ class CliPluginTest {
 
     private fun String.capitalizeFirst() = replaceFirstChar { it.uppercase() }
 
-    private fun listGenerated(dir: File): List<String> =
-        dir.resolve("build/generated/eignexCliBuildInfo").walkTopDown().filter { it.isFile }.map { it.path }.toList()
+    private fun GradleProbe.listGenerated(): List<String> =
+        file(GENERATED).walkTopDown().filter { it.isFile }.map { it.path }.toList()
 
     private fun writeProbe(
         dir: File,
@@ -160,31 +157,23 @@ class CliPluginTest {
             entryPoint = "com.example.main"
         }
         """.trimIndent(),
-    ) {
-        dir.resolve("settings.gradle.kts").writeText("rootProject.name = \"probe\"\n")
-        val platformRepo = writeFakePlatformRepo(dir)
-        dir.resolve("build.gradle.kts").writeText(
-            """
-            plugins {
-                id("com.eignex.cli")
-            }
-            $platformRepo
-            kotlin {
-                $targets
-            }
-            $cliBlock
-            """.trimIndent() + "\n"
-        )
-        val src = dir.resolve("src/commonMain/kotlin/com/example/Main.kt")
-        src.parentFile.mkdirs()
-        src.writeText("internal fun main() { println(\"hi\") }\n")
+    ): GradleProbe = probe(
+        dir,
+        """
+        plugins {
+            id("com.eignex.cli")
+        }
+        ${writeFakePlatformRepo(dir)}
+        kotlin {
+            $targets
+        }
+        $cliBlock
+        """
+    ).apply {
+        write("src/commonMain/kotlin/com/example/Main.kt", "internal fun main() { println(\"hi\") }\n")
     }
 
-    private fun runProbe(dir: File, vararg args: String): String =
-        GradleRunner.create()
-            .withProjectDir(dir)
-            .withArguments(*args, "--stacktrace")
-            .withPluginClasspath()
-            .build()
-            .output
+    private companion object {
+        const val GENERATED = "build/generated/eignexCliBuildInfo/kotlin"
+    }
 }

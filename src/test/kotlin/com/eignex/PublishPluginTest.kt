@@ -1,6 +1,5 @@
 package com.eignex
 
-import org.gradle.testkit.runner.GradleRunner
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -18,10 +17,10 @@ class PublishPluginTest {
     fun `the generated pom carries the extension metadata and the fixed license, scm and developer`(
         @TempDir dir: File,
     ) {
-        writeProbe(dir)
-        runProbe(dir, "generatePomFileForMavenJavaPublication")
+        val probe = writeProbe(dir)
+        probe.build("generatePomFileForMavenJavaPublication")
 
-        val pom = dir.resolve("build/publications/mavenJava/pom-default.xml").readText()
+        val pom = probe.file(POM).readText()
         assertTrue("<artifactId>probe</artifactId>" in pom) { pom }
         assertTrue("<name>probe</name>" in pom) { pom }
         assertTrue("<description>A probe module.</description>" in pom) { pom }
@@ -35,10 +34,10 @@ class PublishPluginTest {
 
     @Test
     fun `artifactId overrides the project name in the pom`(@TempDir dir: File) {
-        writeProbe(dir, publishBlock = extension(artifactId = "probe-core"))
-        runProbe(dir, "generatePomFileForMavenJavaPublication")
+        val probe = writeProbe(dir, publishBlock = extension(artifactId = "probe-core"))
+        probe.build("generatePomFileForMavenJavaPublication")
 
-        val pom = dir.resolve("build/publications/mavenJava/pom-default.xml").readText()
+        val pom = probe.file(POM).readText()
         assertTrue("<artifactId>probe-core</artifactId>" in pom) { pom }
         // name follows the artifactId, not the project name.
         assertTrue("<name>probe-core</name>" in pom) { pom }
@@ -48,8 +47,8 @@ class PublishPluginTest {
     // worse than a build that stops.
     @Test
     fun `a missing githubRepo fails configuration`(@TempDir dir: File) {
-        writeProbe(dir, publishBlock = "eignexPublish { description.set(\"A probe module.\") }")
-        val output = runProbeAndFail(dir, "generatePomFileForMavenJavaPublication")
+        val probe = writeProbe(dir, publishBlock = "eignexPublish { description.set(\"A probe module.\") }")
+        val output = probe.buildAndFail("generatePomFileForMavenJavaPublication").output
         assertTrue("githubRepo" in output) {
             "expected a failure naming the unset githubRepo, got:\n$output"
         }
@@ -58,8 +57,8 @@ class PublishPluginTest {
     // Internal modules opt out; they must not need githubRepo and must get no publication.
     @Test
     fun `publish false skips the publication without requiring githubRepo`(@TempDir dir: File) {
-        writeProbe(dir, publishBlock = "eignexPublish { publish.set(false) }")
-        val output = runProbeAndFail(dir, "generatePomFileForMavenJavaPublication")
+        val probe = writeProbe(dir, publishBlock = "eignexPublish { publish.set(false) }")
+        val output = probe.buildAndFail("generatePomFileForMavenJavaPublication").output
         assertTrue("Task 'generatePomFileForMavenJavaPublication' not found" in output) {
             "expected no mavenJava publication, got:\n$output"
         }
@@ -67,10 +66,10 @@ class PublishPluginTest {
 
     @Test
     fun `publishing to the local staging repository lays out the maven coordinates`(@TempDir dir: File) {
-        writeProbe(dir)
-        runProbe(dir, "publishMavenJavaPublicationToLocalStagingRepository", "-PciVersion=2.0.0")
+        val probe = writeProbe(dir)
+        probe.build("publishMavenJavaPublicationToLocalStagingRepository", "-PciVersion=2.0.0")
 
-        val moduleDir = dir.resolve("build/staging-repo/com/eignex/probe/2.0.0")
+        val moduleDir = probe.file("build/staging-repo/com/eignex/probe/2.0.0")
         val files = moduleDir.list()?.toList().orEmpty()
         assertTrue("probe-2.0.0.jar" in files) { "expected the jar in $files" }
         assertTrue("probe-2.0.0.pom" in files) { "expected the pom in $files" }
@@ -78,10 +77,10 @@ class PublishPluginTest {
 
     @Test
     fun `snapshots are published unsigned`(@TempDir dir: File) {
-        writeProbe(dir)
+        val probe = writeProbe(dir)
         // No ciVersion, so the version is SNAPSHOT: signing every snapshot doubles the uploads for
         // a repository that never validates them.
-        val output = runProbe(dir, "tasks", "--all", "-PsigningKey=not-a-key", "-PsigningPassword=nope")
+        val output = probe.build("tasks", "--all", "-PsigningKey=not-a-key", "-PsigningPassword=nope").output
         assertTrue("Signing skipped: SNAPSHOT is a snapshot." in output) { output }
         assertFalse("signMavenJavaPublication" in output) {
             "expected no signing task for a snapshot, got:\n$output"
@@ -90,8 +89,7 @@ class PublishPluginTest {
 
     @Test
     fun `a release without credentials is published unsigned rather than failing`(@TempDir dir: File) {
-        writeProbe(dir)
-        val output = runProbe(dir, "tasks", "--all", "-PciVersion=2.0.0")
+        val output = writeProbe(dir).build("tasks", "--all", "-PciVersion=2.0.0").output
         assertTrue("Signing disabled: signingKey or signingPassword not defined." in output) { output }
         assertFalse("signMavenJavaPublication" in output) {
             "expected no signing task without credentials, got:\n$output"
@@ -102,15 +100,13 @@ class PublishPluginTest {
     // asked for a signature. Real GPG signing stays out of the test suite.
     @Test
     fun `a release with credentials wires signing into the publication`(@TempDir dir: File) {
-        writeProbe(dir)
-        val output = runProbe(
-            dir,
+        val output = writeProbe(dir).build(
             "publishMavenJavaPublicationToLocalStagingRepository",
             "--dry-run",
             "-PciVersion=2.0.0",
             "-PsigningKey=not-a-key",
             "-PsigningPassword=nope",
-        )
+        ).output
         assertTrue(":signMavenJavaPublication SKIPPED" in output) {
             "expected the publication to be signed, got:\n$output"
         }
@@ -125,26 +121,18 @@ class PublishPluginTest {
         appendLine("}")
     }
 
-    private fun writeProbe(dir: File, publishBlock: String = extension()) {
-        dir.resolve("settings.gradle.kts").writeText("rootProject.name = \"probe\"\n")
-        dir.resolve("build.gradle.kts").writeText(
-            """
-            plugins {
-                `java-library`
-                id("com.eignex.publish")
-            }
-            $publishBlock
-            """.trimIndent() + "\n"
-        )
+    private fun writeProbe(dir: File, publishBlock: String = extension()): GradleProbe = probe(
+        dir,
+        """
+        plugins {
+            `java-library`
+            id("com.eignex.publish")
+        }
+        $publishBlock
+        """
+    )
+
+    private companion object {
+        const val POM = "build/publications/mavenJava/pom-default.xml"
     }
-
-    private fun runner(dir: File, args: Array<out String>) =
-        GradleRunner.create()
-            .withProjectDir(dir)
-            .withArguments(*args, "--stacktrace")
-            .withPluginClasspath()
-
-    private fun runProbe(dir: File, vararg args: String): String = runner(dir, args).build().output
-
-    private fun runProbeAndFail(dir: File, vararg args: String): String = runner(dir, args).buildAndFail().output
 }
