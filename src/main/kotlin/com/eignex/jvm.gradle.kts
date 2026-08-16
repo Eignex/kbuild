@@ -1,4 +1,5 @@
 import com.eignex.internal.KBUILD_VERSION
+import com.eignex.kbuild.KBUILD_JVM_TOOLCHAIN
 
 plugins {
     kotlin("jvm")
@@ -12,7 +13,7 @@ apply(plugin = "com.eignex.lint")
 repositories { mavenCentral() }
 
 kotlin {
-    jvmToolchain(25)
+    jvmToolchain(KBUILD_JVM_TOOLCHAIN)
 }
 
 java {

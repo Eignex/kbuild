@@ -1,5 +1,6 @@
-import com.eignex.internal.KBUILD_VERSION
 import com.eignex.kbuild.EignexCliExtension
+import com.eignex.kbuild.KBUILD_JVM_TOOLCHAIN
+import com.eignex.kbuild.applyKbuildCommonDependencies
 import java.security.MessageDigest
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.plugin.mpp.Executable
@@ -23,22 +24,14 @@ repositories { mavenCentral() }
 val eignexCli = extensions.create<EignexCliExtension>("eignexCli")
 
 kotlin {
-    jvmToolchain(25)
+    jvmToolchain(KBUILD_JVM_TOOLCHAIN)
 
     // Declare targets in your build.gradle.kts:
     //   jvm()
     //   linuxX64(); macosX64(); macosArm64()
     // The executable conventions below apply to whatever targets exist.
 
-    sourceSets {
-        commonMain.dependencies {
-            implementation(project.dependencies.platform("com.eignex:kbuild-platform:$KBUILD_VERSION"))
-        }
-        commonTest.dependencies {
-            implementation(project.dependencies.platform("com.eignex:kbuild-platform:$KBUILD_VERSION"))
-            implementation(kotlin("test"))
-        }
-    }
+    applyKbuildCommonDependencies(project)
 }
 
 // --version build identity: generate an `internal object BuildInfo` into commonMain (so it's

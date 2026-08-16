@@ -24,9 +24,7 @@ afterEvaluate {
             archiveClassifier.set("javadoc")
             destinationDirectory.set(layout.buildDirectory.dir("javadoc-jars/$pubName"))
 
-            val dokkaTask = tasks.findByName("dokkaGenerate")
-                ?: tasks.findByName("dokkaHtml")
-            if (dokkaTask != null) {
+            tasks.findByName("dokkaGenerate")?.let { dokkaTask ->
                 dependsOn(dokkaTask)
                 from(layout.buildDirectory.dir("dokka/html"))
             }
