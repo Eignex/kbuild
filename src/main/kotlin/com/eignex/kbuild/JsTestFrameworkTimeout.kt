@@ -7,13 +7,11 @@ import org.jetbrains.kotlin.gradle.targets.js.testing.karma.KotlinKarma
 import org.jetbrains.kotlin.gradle.targets.js.testing.mocha.KotlinMocha
 
 /**
- * Applies the JS test timeout to whichever framework a test task ends up using: Mocha takes it
- * directly, Karma only through a config directory.
+ * Applies the JS test timeout to whichever framework a test task uses: Mocha takes it directly,
+ * Karma only through a config directory. The timeout is the `120s` form the Kotlin plugin expects.
  *
- * A class rather than a lambda in the convention script: the action is stored on the task, and a
- * lambda declared in a precompiled script plugin captures the script object, which the
- * configuration cache cannot serialize. The timeout takes the `120s` form the Kotlin plugin
- * expects.
+ * A class, not a lambda: the action is stored on the task, and a lambda in a precompiled script
+ * plugin captures the script object, which the configuration cache cannot serialize.
  */
 internal class JsTestFrameworkTimeout(
     private val timeout: String,

@@ -20,16 +20,18 @@
 
 ## Overview
 
-kbuild provides five main convention plugins:
+Five convention plugins:
 
-1. `jvm`: For pure Kotlin/JVM libraries. Includes Dokka, Kover, and testing defaults.
-2. `kmp`: For Kotlin Multiplatform projects. Sets up common testing and toolchains.
-3. `cli`: For Kotlin Multiplatform CLI applications. Wires JVM and native executables onto consumer-declared targets; no publishing. A `releaseAssets` task collects stripped native binaries (`<name>-<version>-<os>-<arch>`), the JVM dist zip, and a `SHA256SUMS` file into `build/release-assets/` for upload to GitHub releases.
-4. `publish`: Standardized Maven Central publishing logic, including automated POM generation and GPG signing.
-5. `lint`: Shared Detekt configuration with Eignex-specific style suppressions.
+1. `jvm`: Kotlin/JVM libraries. Dokka, Kover, and testing defaults.
+2. `kmp`: Kotlin Multiplatform libraries. Common testing and toolchains.
+3. `cli`: Kotlin Multiplatform CLI applications. JVM and native executables on consumer-declared
+   targets, no publishing. `releaseAssets` collects stripped native binaries
+   (`<name>-<version>-<os>-<arch>`), the JVM dist zip, and `SHA256SUMS` into `build/release-assets/`.
+4. `publish`: Maven Central publishing — POM generation and GPG signing.
+5. `lint`: Shared Detekt configuration with Eignex style suppressions.
 
-Both publishing and linting plugins are loaded by either jvm and kmp plugins. So in practice you apply either jvm or
-kmp for libraries, or cli for applications. The cli plugin expects targets declared by the consumer and a
-`eignexCli { mainClass = "..."; entryPoint = "..." }` block for the JVM main class and Kotlin/Native entry point.
+`jvm` and `kmp` both apply `publish` and `lint`, so in practice you apply one of them for a
+library, or `cli` for an application. `cli` needs targets declared by the consumer plus
+`eignexCli { mainClass = "..."; entryPoint = "..." }`.
 
-To configure for your own projects you will need to fork and publish your own version.
+For your own projects, fork and publish your own version.

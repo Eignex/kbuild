@@ -22,8 +22,8 @@ repositories { mavenCentral() }
 kotlin {
     jvmToolchain(KBUILD_JVM_TOOLCHAIN)
 
-    // The compiler's own validation, not binary-compatibility-validator, whose bundled ASM cannot
-    // read class file major 69 and so fails outright on a JVM 25 target.
+    // The compiler's own, not binary-compatibility-validator: its bundled ASM cannot read
+    // class file major 69 and fails outright on a JVM 25 target.
     @OptIn(ExperimentalAbiValidation::class)
     abiValidation {}
 
@@ -46,12 +46,11 @@ plugins.withType<NodeJsPlugin> {
     the<NodeJsEnvSpec>().version.set(pinnedNodeVersion)
 }
 
-// Mocha's 2s per-test default is scheduling noise on a loaded runner. `useMocha { timeout }` reaches
-// only the nodejs tasks; browser tasks run under Karma, which keeps the default, hence both paths.
+// Mocha's 2s per-test default is scheduling noise on a loaded runner. `useMocha { timeout }`
+// reaches only the nodejs tasks; browser tasks run under Karma, hence both paths below.
 val jsTestTimeout = "120s"
 
-// useConfigDirectory replaces the project's karma.config.d rather than adding to it, so anything
-// already there is copied across.
+// useConfigDirectory replaces the project's karma.config.d, so its contents are copied across.
 val karmaConfigDir = layout.buildDirectory.dir("tmp/eignex-karma.config.d")
 val projectKarmaConfigDir = layout.projectDirectory.dir("karma.config.d")
 
@@ -65,8 +64,7 @@ val writeEignexKarmaConfig = tasks.register("writeEignexKarmaConfig") {
         val dir = out.get().asFile
         dir.deleteRecursively()
         dir.mkdirs()
-        // Mutating the nested key rather than config.set keeps the client.args the Kotlin plugin
-        // uses for --tests filtering.
+        // Mutating the nested key, not config.set, keeps the client.args used by --tests.
         dir.resolve("00-eignex-mocha-timeout.js").writeText(
             """
             config.client = config.client || {};

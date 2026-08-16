@@ -4,15 +4,12 @@ import com.eignex.internal.KBUILD_VERSION
 import org.gradle.api.Project
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
 
-/**
- * JDK the convention plugins compile and run against. Shared so the Kotlin toolchain and the
- * detekt jvmTarget cannot drift apart.
- */
+/** JDK the plugins target. Shared so the Kotlin toolchain and detekt's jvmTarget cannot drift. */
 internal const val KBUILD_JVM_TOOLCHAIN = 25
 
 /**
- * Wires the kbuild platform BOM into `commonMain`/`commonTest` and `kotlin-test` into
- * `commonTest` — the dependency baseline every multiplatform convention (kmp, cli) shares.
+ * Wires in the dependency baseline every multiplatform convention shares: the kbuild platform
+ * BOM on `commonMain`/`commonTest`, and `kotlin-test` on `commonTest`.
  */
 internal fun KotlinMultiplatformExtension.applyKbuildCommonDependencies(project: Project) {
     fun kbuildPlatform() = project.dependencies.platform("com.eignex:kbuild-platform:$KBUILD_VERSION")

@@ -12,8 +12,8 @@ version = findProperty("ciVersion") as String? ?: "SNAPSHOT"
 val eignexPublish = extensions.create<EignexPublishExtension>("eignexPublish")
 
 afterEvaluate {
-    // Opt out for internal modules (benchmarks, samples) that use the conventions but never
-    // publish; skips the publication/signing wiring and the githubRepo requirement.
+    // Opt out for internal modules (benchmarks, samples): no publication, signing, or
+    // githubRepo requirement.
     if (!eignexPublish.publish.getOrElse(true)) return@afterEvaluate
 
     val artifactId = eignexPublish.artifactId.getOrElse(project.name)
@@ -60,16 +60,16 @@ afterEvaluate {
     publishing {
         publications {
             if (components.findByName("java") != null) {
-                // JVM project: a single publication from the java component (the sources and
-                // javadoc jars are already wired into it by jvm.gradle.kts).
+                // JVM: one publication from the java component, whose sources and javadoc
+                // jars jvm.gradle.kts already wired in.
                 create<MavenPublication>("mavenJava") {
                     from(components["java"])
                     this.artifactId = artifactId
                     configureCommonPom()
                 }
             } else {
-                // KMP project: the Kotlin plugin creates one publication per target, so the
-                // javadoc jar and POM have to be attached to each of them.
+                // KMP: the Kotlin plugin creates one publication per target, so the javadoc
+                // jar and POM attach to each.
                 withType<MavenPublication>().configureEach {
                     val javadocJarTask = createJavadocJarTask(name)
                     artifact(javadocJarTask)
@@ -97,8 +97,8 @@ afterEvaluate {
     signing {
         val key = findProperty("signingKey") as String?
         val pass = findProperty("signingPassword") as String?
-        // The snapshot repository runs no component validation, so a signature buys nothing there
-        // and each one doubles the files uploaded per artifact.
+        // The snapshot repository runs no validation, so a signature buys nothing and doubles
+        // the files uploaded per artifact.
         val isSnapshot = version.toString().endsWith("SNAPSHOT")
         if (key != null && pass != null && !isSnapshot) {
             useInMemoryPgpKeys(key, pass)

@@ -34,13 +34,11 @@ kotlin {
     applyKbuildCommonDependencies(project)
 }
 
-// --version build identity: generate an `internal object BuildInfo` into commonMain (so it's
-// shared by every target — JVM and native) from the configured/project version, instead of
-// each CLI hand-maintaining a constant that drifts from the real version. Generated under
-// build/, so it's outside the detekt/checkKdoc `src` scan; it's `internal`, so dokka (which
-// documents public API only) ignores it too — no lint to fight on generated code.
+// --version build identity: an `internal object BuildInfo` generated into commonMain, so every
+// target shares it and no CLI hand-maintains a constant that drifts. It lands under build/ and
+// is internal, so neither the detekt/checkKdoc `src` scan nor dokka sees it.
 val generatedBuildInfoDir = layout.buildDirectory.dir("generated/eignexCliBuildInfo/kotlin")
-// Capture project coordinates as plain Strings at configuration time (CC-safe defaults).
+// Plain Strings captured at configuration time (CC-safe defaults).
 val projectVersion = version.toString()
 val projectName = name
 val projectGroup = group.toString()
@@ -48,8 +46,8 @@ val projectGroup = group.toString()
 val generateCliBuildInfo = tasks.register("generateCliBuildInfo") {
     description = "Generates the BuildInfo object (NAME/ID/VERSION) the CLI reports via --version."
     val outDir = generatedBuildInfoDir
-    // Lazy: eignexCli is configured by the consumer after this plugin applies, so read it
-    // through providers resolved at execution time. orElse supplies the project-derived default.
+    // Lazy: the consumer configures eignexCli after this plugin applies, so resolve at
+    // execution time, with orElse supplying the project-derived default.
     val versionValue = eignexCli.version.orElse(projectVersion)
     val nameValue = eignexCli.appName.orElse(projectName)
     val idValue = eignexCli.appId.orElse(projectGroup)
@@ -89,8 +87,7 @@ val generateCliBuildInfo = tasks.register("generateCliBuildInfo") {
     }
 }
 
-// srcDir(taskProvider) both adds the generated dir and makes compilation depend on the task,
-// across every target via commonMain — same wiring as the root build's KbuildVersion source.
+// srcDir(taskProvider) adds the dir and makes every target's compilation depend on the task.
 kotlin.sourceSets.named("commonMain") {
     kotlin.srcDir(generateCliBuildInfo)
 }
@@ -106,19 +103,17 @@ kotlin.targets.withType<KotlinJvmTarget>().all {
     }
 }
 
-// Everything below reads consumer configuration — the eignexCli extension and the target set —
-// that only exists once the consumer's script has run.
+// Everything below reads consumer configuration that exists only after their script has run.
 afterEvaluate {
-    // entryPoint is a plain var on the binary, not a lazy property, so the extension has to be
-    // read eagerly here rather than wired through a provider.
+    // entryPoint is a plain var on the binary, not a property, so it cannot take a provider.
     kotlin.targets.withType<KotlinNativeTarget>().configureEach {
         binaries.executable {
             eignexCli.entryPoint.orNull?.let { entryPoint = it }
         }
     }
 
-    // Release packaging: collect renamed, stripped native executables and the JVM dist zip
-    // into build/release-assets/, ready to upload as GitHub release assets.
+    // Release packaging: renamed, stripped native executables plus the JVM dist zip, collected
+    // into build/release-assets/ for upload to a GitHub release.
     val baseName = project.name
     val assetVersion = version.toString()
     val assetsDir = layout.buildDirectory.dir("release-assets")
