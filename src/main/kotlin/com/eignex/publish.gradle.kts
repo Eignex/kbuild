@@ -70,7 +70,8 @@ afterEvaluate {
                     configureCommonPom()
                 }
             } else {
-                // KMP project: publications are auto-created per target
+                // KMP project: the Kotlin plugin creates one publication per target, so the
+                // javadoc jar and POM have to be attached to each of them.
                 withType<MavenPublication>().configureEach {
                     val javadocJarTask = createJavadocJarTask(name)
                     artifact(javadocJarTask)

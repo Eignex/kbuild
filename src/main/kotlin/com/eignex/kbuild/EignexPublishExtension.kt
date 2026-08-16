@@ -2,6 +2,7 @@ package com.eignex.kbuild
 
 import org.gradle.api.provider.Property
 
+/** Configuration for the `com.eignex.publish` convention plugin. */
 abstract class EignexPublishExtension {
     /** Maven artifact ID. Defaults to the Gradle project name. */
     abstract val artifactId: Property<String>

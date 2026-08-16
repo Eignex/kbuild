@@ -113,8 +113,11 @@ kotlin.targets.withType<KotlinJvmTarget>().all {
     }
 }
 
-// entryPoint is not a lazy property, so read the extension after the consumer's script has run.
+// Everything below reads consumer configuration — the eignexCli extension and the target set —
+// that only exists once the consumer's script has run.
 afterEvaluate {
+    // entryPoint is a plain var on the binary, not a lazy property, so the extension has to be
+    // read eagerly here rather than wired through a provider.
     kotlin.targets.withType<KotlinNativeTarget>().configureEach {
         binaries.executable {
             eignexCli.entryPoint.orNull?.let { entryPoint = it }
