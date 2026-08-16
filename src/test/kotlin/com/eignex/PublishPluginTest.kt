@@ -113,6 +113,57 @@ class PublishPluginTest {
         assertFalse("Signing disabled" in output) { output }
     }
 
+    // A KMP project has no `java` component, so the plugin takes its other branch: the Kotlin
+    // plugin creates one publication per target plus a `kotlinMultiplatform` root, and the POM
+    // and javadoc jar have to be attached to each of them rather than to a single `mavenJava`.
+    @Test
+    fun `every publication of a KMP project carries the common pom`(@TempDir dir: File) {
+        val probe = writeKmpProbe(dir)
+
+        probe.build(*KMP_PUBLICATIONS.map { "generatePomFileFor${it.capitalizeFirst()}Publication" }.toTypedArray())
+
+        for (pub in KMP_PUBLICATIONS) {
+            val pom = probe.file("build/publications/$pub/pom-default.xml").readText()
+            assertTrue("<description>A probe module.</description>" in pom) { "$pub:\n$pom" }
+            assertTrue("<url>https://github.com/Eignex/probe</url>" in pom) { "$pub:\n$pom" }
+            assertTrue("scm:git:https://github.com/Eignex/probe.git" in pom) { "$pub:\n$pom" }
+            assertTrue("<name>Apache-2.0</name>" in pom) { "$pub:\n$pom" }
+            assertTrue("<id>rasros</id>" in pom) { "$pub:\n$pom" }
+        }
+    }
+
+    // Central rejects any publication without a javadoc jar, so each of them needs its own —
+    // and the task is registered from inside a configureEach over the publications, which is
+    // late enough that a publication first realized during execution would break it.
+    @Test
+    fun `every publication of a KMP project gets its own javadoc jar`(@TempDir dir: File) {
+        val probe = writeKmpProbe(dir)
+
+        val output = probe.build("publishAllPublicationsToLocalStagingRepository", "--dry-run").output
+
+        for (pub in KMP_PUBLICATIONS) {
+            assertTrue(":${pub}JavadocJar SKIPPED" in output) {
+                "expected a javadoc jar for the $pub publication, got:\n$output"
+            }
+        }
+    }
+
+    // An asymmetry worth pinning down rather than discovering during a release: on a KMP project
+    // the coordinates come from the Kotlin plugin (project name + target), so eignexPublish's
+    // artifactId reaches only the POM's <name>. On a JVM project it sets both.
+    @Test
+    fun `artifactId renames the KMP pom without moving its coordinates`(@TempDir dir: File) {
+        val probe = writeKmpProbe(dir, publishBlock = extension(artifactId = "probe-core"))
+
+        probe.build("generatePomFileForJvmPublication")
+
+        val pom = probe.file("build/publications/jvm/pom-default.xml").readText()
+        assertTrue("<artifactId>probe-jvm</artifactId>" in pom) { pom }
+        assertTrue("<name>probe-core</name>" in pom) { pom }
+    }
+
+    private fun String.capitalizeFirst() = replaceFirstChar { it.uppercase() }
+
     private fun extension(artifactId: String? = null) = buildString {
         appendLine("eignexPublish {")
         artifactId?.let { appendLine("    artifactId.set(\"$it\")") }
@@ -132,7 +183,35 @@ class PublishPluginTest {
         """
     )
 
+    /**
+     * A multiplatform probe with publishing switched on, unlike [kmpProbe]. The targets are the
+     * two that need no toolchain download and exist on every host: a native target's publication
+     * is only created where it can be cross-compiled, which would make this host-dependent.
+     *
+     * The fake platform repo is required here, not just convenient — generating a KMP POM
+     * resolves the dependency graph, and commonMain pulls in the kbuild platform BOM.
+     */
+    private fun writeKmpProbe(dir: File, publishBlock: String = extension()): GradleProbe = probe(
+        dir,
+        """
+        plugins {
+            id("com.eignex.kmp")
+        }
+        ${writeFakePlatformRepo(dir)}
+        $publishBlock
+        kotlin {
+            jvm()
+            js { nodejs() }
+        }
+        """
+    ).apply {
+        write("src/commonMain/kotlin/Probe.kt", "internal class Probe\n")
+    }
+
     private companion object {
         const val POM = "build/publications/mavenJava/pom-default.xml"
+
+        /** What `kotlin { jvm(); js() }` produces: one per target, plus the metadata root. */
+        val KMP_PUBLICATIONS = listOf("kotlinMultiplatform", "jvm", "js")
     }
 }
