@@ -6,9 +6,9 @@ import org.junit.jupiter.api.io.TempDir
 import java.io.File
 
 /**
- * TestKit harness for com.eignex.jvm. The plugin's whole job is composition — it pulls in publish
- * and lint, wires the sources/javadoc jars a Central release needs, and pins the test framework —
- * so the tests here assert that each of those survived, not how the composition is written.
+ * TestKit harness for com.eignex.jvm. The plugin's whole job is composition: it pulls in publish
+ * and lint, wires the sources/javadoc jars a Central release needs, and pins the test framework.
+ * The tests here assert that each of those survived, not how the composition is written.
  */
 class JvmPluginTest {
 
@@ -43,7 +43,7 @@ class JvmPluginTest {
     }
 
     // The only test in this class that runs a real build. Gradle's default runner is JUnit 4, so
-    // without useJUnitPlatform a Jupiter test is simply never discovered — a failure mode that is
+    // without useJUnitPlatform a Jupiter test is simply never discovered, a failure mode that is
     // invisible to any configuration-time assertion.
     @Test
     fun `the test task discovers jupiter tests`(@TempDir dir: File) {

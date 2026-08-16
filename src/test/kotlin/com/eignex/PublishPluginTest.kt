@@ -9,7 +9,7 @@ import java.io.File
 /**
  * TestKit harness for com.eignex.publish. The probe is a plain `java-library` with no sources, so
  * every assertion here is about publication metadata rather than compilation. Signing is exercised
- * only up to the point of task wiring — no real key is ever handed to GPG.
+ * only up to the point of task wiring; no real key is ever handed to GPG.
  */
 class PublishPluginTest {
 
@@ -132,7 +132,7 @@ class PublishPluginTest {
         }
     }
 
-    // Central rejects any publication without a javadoc jar, so each of them needs its own —
+    // Central rejects any publication without a javadoc jar, so each of them needs its own,
     // and the task is registered from inside a configureEach over the publications, which is
     // late enough that a publication first realized during execution would break it.
     @Test
@@ -188,7 +188,7 @@ class PublishPluginTest {
      * two that need no toolchain download and exist on every host: a native target's publication
      * is only created where it can be cross-compiled, which would make this host-dependent.
      *
-     * The fake platform repo is required here, not just convenient — generating a KMP POM
+     * The fake platform repo is required here, not just convenient: generating a KMP POM
      * resolves the dependency graph, and commonMain pulls in the kbuild platform BOM.
      */
     private fun writeKmpProbe(dir: File, publishBlock: String = extension()): GradleProbe = probe(

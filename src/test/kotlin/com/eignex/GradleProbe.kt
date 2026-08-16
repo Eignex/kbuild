@@ -9,9 +9,9 @@ import java.io.File
 /**
  * A throwaway Gradle project the TestKit tests build against.
  *
- * Every test needs the same pieces — a settings file, a build script applying one of the
- * convention plugins, and a runner wired to the plugin-under-test classpath — so they are
- * assembled here once instead of in each test class.
+ * Every test needs the same pieces: a settings file, a build script applying one of the
+ * convention plugins, and a runner wired to the plugin-under-test classpath. They are assembled
+ * here once instead of in each test class.
  */
 internal class GradleProbe(private val projectDir: File) {
 

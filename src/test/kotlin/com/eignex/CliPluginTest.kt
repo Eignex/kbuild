@@ -11,7 +11,7 @@ import java.security.MessageDigest
 /**
  * TestKit harness for com.eignex.cli. Covers the two things the plugin adds on top of a plain
  * multiplatform build: the generated BuildInfo a CLI reports through `--version`, and the
- * releaseAssets packaging. Nothing here compiles or links native code — the assertions are on
+ * releaseAssets packaging. Nothing here compiles or links native code: the assertions are on
  * generated sources and on the task graph, so they stay runnable on any host.
  */
 class CliPluginTest {
@@ -96,8 +96,8 @@ class CliPluginTest {
     }
 
     // The one test that actually builds something. Only the JVM half: native linking needs a
-    // Kotlin/Native toolchain and minutes of CI time, and the packaging code under test — asset
-    // naming and the checksum file — is the same code path for both kinds of asset.
+    // Kotlin/Native toolchain and minutes of CI time, and the packaging code under test (asset
+    // naming and the checksum file) is the same code path for both kinds of asset.
     @Test
     fun `releaseAssets packages the jvm zip under the release name with a matching checksum`(@TempDir dir: File) {
         val probe = writeProbe(dir)

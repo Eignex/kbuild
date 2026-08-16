@@ -134,7 +134,7 @@ val checkNativeSafeTestNames = tasks.register("checkNativeSafeTestNames") {
         }
         if (offenders.isNotEmpty()) {
             throw GradleException(
-                "Backtick test name(s) contain ( ) or # — breaks the Kotlin/Native compile:\n" +
+                "Backtick test name(s) contain ( ) or #, breaking the Kotlin/Native compile:\n" +
                         offenders.joinToString("\n").prependIndent("  ")
             )
         }
@@ -142,8 +142,8 @@ val checkNativeSafeTestNames = tasks.register("checkNativeSafeTestNames") {
 }
 
 // Cheap KDoc validation in `check`, so broken docs surface locally and not only in the dokka
-// job: block tags must be valid and a qualified [link]'s package must exist here. Lexical only
-// — resolving symbols needs the compiler frontend and stays in lintDocs' dokka run.
+// job: block tags must be valid and a qualified [link]'s package must exist here. Lexical only:
+// resolving symbols needs the compiler frontend and stays in lintDocs' dokka run.
 val checkKdoc = tasks.register("checkKdoc") {
     group = "verification"
     description = "Checks KDoc block tags are valid and qualified [links] name a real project package."
@@ -157,7 +157,7 @@ val checkKdoc = tasks.register("checkKdoc") {
         )
         val files = sources.files
         // Only links under the project's own root (the longest common package prefix) are
-        // checked, leaving stdlib and dependency refs — incl. sibling com.eignex.* — alone.
+        // checked, leaving stdlib and dependency refs (incl. sibling com.eignex.*) alone.
         val packageRegex = Regex("""^\s*package\s+([\w.]+)""")
         val knownPackages = files.flatMap { f ->
             f.useLines { lines -> lines.mapNotNull { packageRegex.find(it)?.groupValues?.get(1) }.toList() }
@@ -177,7 +177,7 @@ val checkKdoc = tasks.register("checkKdoc") {
 
         for (file in files) {
             var inKdoc = false
-            var inFence = false // inside a ``` code fence within a KDoc block — skip checks there
+            var inFence = false // inside a ``` code fence within a KDoc block; no checks there
             file.useLines { lines ->
                 lines.forEachIndexed { idx, line ->
                     if (!inKdoc && "/**" in line) inKdoc = true

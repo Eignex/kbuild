@@ -6,7 +6,7 @@ import java.io.File
 /**
  * The convention plugins pin their dependencies to `com.eignex:kbuild-platform:<kbuild version>`,
  * which no test run has published anywhere. This writes a throwaway Maven repository holding an
- * empty BOM under that coordinate, so probe projects resolve — and therefore configure — without
+ * empty BOM under that coordinate, so probe projects resolve (and therefore configure) without
  * the real platform having to be built and installed first.
  *
  * Returns a `repositories { maven { ... } }` snippet to paste into the probe's build script.

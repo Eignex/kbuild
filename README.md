@@ -27,11 +27,11 @@ Five convention plugins:
 3. `cli`: Kotlin Multiplatform CLI applications. JVM and native executables on consumer-declared
    targets, no publishing. `releaseAssets` collects stripped native binaries
    (`<name>-<version>-<os>-<arch>`), the JVM dist zip, and `SHA256SUMS` into `build/release-assets/`.
-4. `publish`: Maven Central publishing — POM generation and GPG signing.
+4. `publish`: Maven Central publishing, including POM generation and GPG signing.
 5. `lint`: Shared Detekt configuration with Eignex style suppressions.
 
-`jvm` and `kmp` both apply `publish` and `lint`, so in practice you apply one of them for a
-library, or `cli` for an application. `cli` needs targets declared by the consumer plus
-`eignexCli { mainClass = "..."; entryPoint = "..." }`.
+The jvm and kmp plugins both apply publish and lint, so in practice you apply one of them for a
+library, or cli for an application. The cli plugin needs targets declared by the consumer plus an
+`eignexCli { mainClass = "..."; entryPoint = "..." }` block.
 
 For your own projects, fork and publish your own version.

@@ -16,7 +16,7 @@ abstract class EignexPublishExtension {
     /**
      * Whether to set up Maven publication and signing. Defaults to `true`. Set to `false` for
      * internal modules (benchmarks, samples) that use the build conventions but are never
-     * published — this skips the publication wiring and the [githubRepo] requirement.
+     * published. That skips the publication wiring and the [githubRepo] requirement.
      */
     abstract val publish: Property<Boolean>
 }

@@ -93,7 +93,7 @@ kotlin.sourceSets.named("commonMain") {
 }
 
 // Eager all {}, not configureEach: the binaries DSL applies the distribution plugin,
-// which calls afterEvaluate — forbidden inside lazy configuration actions.
+// which calls afterEvaluate, forbidden inside lazy configuration actions.
 kotlin.targets.withType<KotlinJvmTarget>().all {
     @OptIn(ExperimentalKotlinGradlePluginApi::class)
     binaries {

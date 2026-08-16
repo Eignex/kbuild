@@ -16,7 +16,7 @@ run_positive() {
     fi
 }
 
-# A targeted positive run — one task rather than the full :check, for a target :check does not
+# A targeted positive run: one task rather than the full :check, for a target :check does not
 # reach, such as instantiating a wasmWasi module on the pinned node.
 run_task() {
     local proj="$1" task="$2"
