@@ -21,7 +21,9 @@ class JvmPluginTest {
         val output = runProbe(dir, "publishMavenJavaPublicationToLocalStagingRepository", "--dry-run")
         assertTrue(":sourcesJar SKIPPED" in output) { "expected a sources jar, got:\n$output" }
         assertTrue(":javadocJar SKIPPED" in output) { "expected a javadoc jar, got:\n$output" }
-        assertTrue("dokka" in output) { "expected the javadoc jar to be built from dokka, got:\n$output" }
+        assertTrue(":dokkaGenerate SKIPPED" in output) {
+            "expected the javadoc jar to be built from dokka, got:\n$output"
+        }
     }
 
     @Test
@@ -74,9 +76,16 @@ class JvmPluginTest {
             """.trimIndent() + "\n"
         )
 
-        val output = runProbe(dir, "test", "--info")
-        assertTrue("SampleTest" in output) {
-            "expected the jupiter test to be executed, got:\n$output"
+        runProbe(dir, "test")
+
+        // The result XML, not the log: with JUnit 4 the task still succeeds having discovered
+        // nothing, and the class name shows up in compiler output either way.
+        val results = dir.resolve("build/test-results/test/TEST-com.example.SampleTest.xml")
+        assertTrue(results.isFile) {
+            "expected the jupiter test to be executed, found ${dir.resolve("build/test-results/test").list()?.toList()}"
+        }
+        assertTrue("""tests="1" skipped="0" failures="0" errors="0"""" in results.readText()) {
+            results.readText()
         }
     }
 
