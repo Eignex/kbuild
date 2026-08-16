@@ -247,7 +247,7 @@ val checkKdoc = tasks.register("checkKdoc") {
 
 val lintDocs = tasks.register("lintDocs") {
     group = "verification"
-    description = "Runs detekt comment rules and Dokka (with failOnWarning) to validate KDoc."
+    description = "Runs detekt comment rules and Dokka, failing on unresolved KDoc links and unknown tags."
     dependsOn(tasks.withType<Detekt>())
 }
 

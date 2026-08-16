@@ -56,6 +56,7 @@ val karmaConfigDir = layout.buildDirectory.dir("tmp/eignex-karma.config.d")
 val projectKarmaConfigDir = layout.projectDirectory.dir("karma.config.d")
 
 val writeEignexKarmaConfig = tasks.register("writeEignexKarmaConfig") {
+    description = "Materializes the karma config directory the browser test tasks read."
     val out = karmaConfigDir
     val own = projectKarmaConfigDir
     val timeoutMs = jsTestTimeout.removeSuffix("s").toInt() * 1000
