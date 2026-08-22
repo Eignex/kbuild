@@ -42,6 +42,16 @@ class JvmPluginTest {
         assertTrue("com.eignex:kbuild-platform" in test) { test }
     }
 
+    @Test
+    fun `platform dependencies can be disabled`(@TempDir dir: File) {
+        val probe = writeProbe(
+            dir,
+            buildBlock = "eignexBuild { usePlatformDependencies.set(false) }",
+        )
+        val compile = probe.build("dependencies", "--configuration", "compileClasspath").output
+        assertTrue("com.eignex:kbuild-platform" !in compile) { compile }
+    }
+
     // The only test in this class that runs a real build. Gradle's default runner is JUnit 4, so
     // without useJUnitPlatform a Jupiter test is simply never discovered, a failure mode that is
     // invisible to any configuration-time assertion.
@@ -86,13 +96,18 @@ class JvmPluginTest {
         }
     }
 
-    private fun writeProbe(dir: File, extraDependencies: String = ""): GradleProbe = probe(
+    private fun writeProbe(
+        dir: File,
+        extraDependencies: String = "",
+        buildBlock: String = "",
+    ): GradleProbe = probe(
         dir,
         """
         plugins {
             id("com.eignex.jvm")
         }
         ${writeFakePlatformRepo(dir)}
+        $buildBlock
         eignexPublish {
             description.set("A probe module.")
             githubRepo.set("Eignex/probe")

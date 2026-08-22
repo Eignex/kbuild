@@ -32,6 +32,15 @@ class KmpPluginTest {
     }
 
     @Test
+    fun `karma timeout is configurable`(@TempDir dir: File) {
+        val probe = kmpProbe(dir, "eignexBuild { jsTestTimeout.set(\"45s\") }")
+
+        probe.build(WRITE_KARMA_CONFIG)
+
+        assertTrue("timeout: 45000" in probe.file("$GENERATED_KARMA_DIR/00-eignex-mocha-timeout.js").readText())
+    }
+
+    @Test
     fun `karma config copies the project's own entries verbatim`(@TempDir dir: File) {
         val probe = kmpProbe(dir)
         val own = "config.reporters = ['dots'];\n"

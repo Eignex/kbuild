@@ -63,3 +63,23 @@ mavenPublish {
 
 Eignex modules retain the Apache-2.0 default. Configuring `licenses` replaces that default and
 supports multiple entries; each entry may set `name`, `url`, and `distribution`.
+
+### Convention overrides
+
+The JVM, KMP, and CLI plugins expose shared defaults through `eignexBuild`. Existing Eignex
+defaults remain active, but consumers can replace them or disable optional behavior:
+
+```kotlin
+eignexBuild {
+    jvmToolchain.set(21)
+    nodeVersion.set("20.0.0")
+    jsTestTimeout.set("45s")
+    usePlatformDependencies.set(false)
+    lintEnabled.set(false)
+    koverEnabled.set(false)
+}
+```
+
+`eignexLint` can disable the built-in rules or adjust reporting. CLI projects can configure
+`releaseAssetPrefix`, `releaseAssetsDirectory`, `stripReleaseBinaries`, and
+`releaseAssetsEnabled` on `eignexCli`.

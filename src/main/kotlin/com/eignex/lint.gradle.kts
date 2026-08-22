@@ -1,4 +1,6 @@
 import com.eignex.internal.DETEKT_VERSION
+import com.eignex.kbuild.EignexLintExtension
+import com.eignex.kbuild.getOrCreateEignexBuildExtension
 import com.eignex.kbuild.KBUILD_JVM_TOOLCHAIN
 import dev.detekt.gradle.Detekt
 import dev.detekt.gradle.DetektCreateBaselineTask
@@ -6,6 +8,14 @@ import dev.detekt.gradle.DetektCreateBaselineTask
 plugins {
     id("dev.detekt")
 }
+
+val eignexLint = extensions.create<EignexLintExtension>("eignexLint")
+val eignexBuild = project.getOrCreateEignexBuildExtension()
+eignexLint.enabled.convention(true)
+eignexLint.useEignexConfig.convention(true)
+eignexLint.autoCorrect.convention(true)
+eignexLint.htmlReport.convention(true)
+eignexLint.sarifReport.convention(false)
 
 dependencies {
     // A rule set built against a different engine than the one running it is unsupported, so this
@@ -65,11 +75,13 @@ val writeEignexDetektConfig = tasks.register("writeEignexDetektConfig") {
     val output = eignexDetektConfigFile
     val content = eignexDetektConfigContent
     inputs.property("content", content)
+    inputs.property("useEignexConfig", eignexLint.useEignexConfig)
     outputs.file(output).withPropertyName("eignexDetektConfig")
     doLast {
+        val useEignexConfig = inputs.properties["useEignexConfig"] as Boolean
         output.get().asFile.apply {
             parentFile.mkdirs()
-            writeText(content)
+            writeText(if (useEignexConfig) content else "")
         }
     }
 }
@@ -90,16 +102,32 @@ detekt {
 tasks.withType<Detekt>().configureEach {
     dependsOn(writeEignexDetektConfig)
     jvmTarget = KBUILD_JVM_TOOLCHAIN.toString()
-    autoCorrect = true
+    autoCorrect = eignexLint.autoCorrect.get()
     reports {
-        html.required.set(true)
-        sarif.required.set(false)
+        html.required.set(eignexLint.htmlReport.get())
+        sarif.required.set(eignexLint.sarifReport.get())
     }
 }
 
 tasks.withType<DetektCreateBaselineTask>().configureEach {
     dependsOn(writeEignexDetektConfig)
     jvmTarget = KBUILD_JVM_TOOLCHAIN.toString()
+}
+
+afterEvaluate {
+    tasks.withType<Detekt>().configureEach {
+        jvmTarget = eignexBuild.jvmToolchain.get().toString()
+        autoCorrect = eignexLint.autoCorrect.get()
+        reports.html.required.set(eignexLint.htmlReport.get())
+        reports.sarif.required.set(eignexLint.sarifReport.get())
+    }
+    if (!eignexLint.enabled.get()) {
+        tasks.withType<Detekt>().configureEach { enabled = false }
+        tasks.withType<DetektCreateBaselineTask>().configureEach { enabled = false }
+        tasks.matching { it.name == "checkKdoc" || it.name == "checkNativeSafeTestNames" }.configureEach {
+            enabled = false
+        }
+    }
 }
 
 // On KMP the detekt plugin adds a JVM-shaped pair that puts commonMain and jvmMain in one

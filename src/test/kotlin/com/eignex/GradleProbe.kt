@@ -53,12 +53,13 @@ internal fun probe(dir: File, buildScript: String): GradleProbe = GradleProbe(di
  * signing or credentials are needed, and one common source file gives the ABI check something
  * to look at.
  */
-internal fun kmpProbe(dir: File): GradleProbe = probe(
+internal fun kmpProbe(dir: File, buildBlock: String = ""): GradleProbe = probe(
     dir,
     """
     plugins {
         id("com.eignex.kmp")
     }
+    $buildBlock
     eignexPublish { publish.set(false) }
     kotlin { jvm() }
     """
@@ -70,13 +71,14 @@ internal fun kmpProbe(dir: File): GradleProbe = probe(
  * A probe applying com.eignex.lint on top of a plain Kotlin/JVM project. The Kotlin plugin needs
  * no version: TestKit injects it along with the plugin under test.
  */
-internal fun lintProbe(dir: File): GradleProbe = probe(
+internal fun lintProbe(dir: File, buildBlock: String = ""): GradleProbe = probe(
     dir,
     """
     plugins {
         kotlin("jvm")
         id("com.eignex.lint")
     }
+    $buildBlock
     repositories { mavenCentral() }
     kotlin { jvmToolchain(21) }
     """

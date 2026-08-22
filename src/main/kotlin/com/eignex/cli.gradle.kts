@@ -1,6 +1,6 @@
 import com.eignex.kbuild.EignexCliExtension
-import com.eignex.kbuild.KBUILD_JVM_TOOLCHAIN
 import com.eignex.kbuild.applyKbuildCommonDependencies
+import com.eignex.kbuild.getOrCreateEignexBuildExtension
 import java.security.MessageDigest
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.plugin.mpp.Executable
@@ -14,24 +14,25 @@ plugins {
     id("org.jetbrains.kotlinx.kover")
 }
 
+val eignexBuild = project.getOrCreateEignexBuildExtension()
+
 apply(plugin = "com.eignex.lint")
 
-group = "com.eignex"
 version = findProperty("ciVersion") as String? ?: "SNAPSHOT"
 
-repositories { mavenCentral() }
-
 val eignexCli = extensions.create<EignexCliExtension>("eignexCli")
+eignexCli.releaseAssetsEnabled.convention(true)
+eignexCli.releaseAssetPrefix.convention(name)
+eignexCli.releaseAssetsDirectory.convention("build/release-assets")
+eignexCli.stripReleaseBinaries.convention(true)
 
 kotlin {
-    jvmToolchain(KBUILD_JVM_TOOLCHAIN)
-
     // Declare targets in your build.gradle.kts:
     //   jvm()
     //   linuxX64(); macosX64(); macosArm64()
     // The executable conventions below apply to whatever targets exist.
 
-    applyKbuildCommonDependencies(project)
+    applyKbuildCommonDependencies(project, eignexBuild)
 }
 
 // --version build identity: an `internal object BuildInfo` generated into commonMain, so every
@@ -39,9 +40,11 @@ kotlin {
 // is internal, so neither the detekt/checkKdoc `src` scan nor dokka sees it.
 val generatedBuildInfoDir = layout.buildDirectory.dir("generated/eignexCliBuildInfo/kotlin")
 // Plain Strings captured at configuration time (CC-safe defaults).
-val projectVersion = version.toString()
+val projectVersion = providers.provider { version.toString() }
 val projectName = name
-val projectGroup = group.toString()
+val projectGroup = providers.provider {
+    group.toString().takeIf { it.isNotBlank() } ?: eignexBuild.defaultGroup.get()
+}
 
 val generateCliBuildInfo = tasks.register("generateCliBuildInfo") {
     description = "Generates the BuildInfo object (NAME/ID/VERSION) the CLI reports via --version."
@@ -105,6 +108,20 @@ kotlin.targets.withType<KotlinJvmTarget>().all {
 
 // Everything below reads consumer configuration that exists only after their script has run.
 afterEvaluate {
+    if (eignexBuild.useMavenCentral.get()) repositories.mavenCentral()
+    kotlin {
+        jvmToolchain(eignexBuild.jvmToolchain.get())
+    }
+    if (!eignexBuild.lintEnabled.get()) {
+        tasks.matching { it.name.startsWith("detekt") || it.name == "checkKdoc" }.configureEach {
+            enabled = false
+        }
+    }
+    if (!eignexBuild.koverEnabled.get()) {
+        tasks.matching { it.name.startsWith("kover") }.configureEach { enabled = false }
+    }
+    if (!eignexCli.releaseAssetsEnabled.get()) return@afterEvaluate
+
     // entryPoint is a plain var on the binary, not a property, so it cannot take a provider.
     kotlin.targets.withType<KotlinNativeTarget>().configureEach {
         binaries.executable {
@@ -114,9 +131,9 @@ afterEvaluate {
 
     // Release packaging: renamed, stripped native executables plus the JVM dist zip, collected
     // into build/release-assets/ for upload to a GitHub release.
-    val baseName = project.name
+    val baseName = eignexCli.releaseAssetPrefix.get()
     val assetVersion = version.toString()
-    val assetsDir = layout.buildDirectory.dir("release-assets")
+    val assetsDir = layout.projectDirectory.dir(eignexCli.releaseAssetsDirectory.get())
 
     // Only host-linkable targets: macOS binaries cannot be cross-linked from Linux and vice versa.
     val hostManager = HostManager()
@@ -138,11 +155,12 @@ afterEvaluate {
             binary.outputFile to "$baseName-$assetVersion-$osArch"
         }
         val jvmZip = jvmDistZip?.archiveFile
+        inputs.property("stripReleaseBinaries", eignexCli.stripReleaseBinaries)
         // macOS needs -x (non-global symbols only): a full strip fails on linked Mach-O executables.
         val stripCommand = if (HostManager.hostIsMac) listOf("strip", "-x") else listOf("strip")
 
         doLast {
-            val dir = assetsDir.get().asFile
+            val dir = assetsDir.asFile
             dir.deleteRecursively()
             dir.mkdirs()
             val assets = mutableListOf<File>()
@@ -151,12 +169,15 @@ afterEvaluate {
                 asset.setExecutable(true)
                 // Best effort: keep the unstripped binary if strip is unavailable.
                 // Discard output: an unread pipe fills up and deadlocks waitFor.
-                runCatching {
-                    ProcessBuilder(stripCommand + asset.absolutePath)
-                        .redirectOutput(ProcessBuilder.Redirect.DISCARD)
-                        .redirectError(ProcessBuilder.Redirect.DISCARD)
-                        .start()
-                        .waitFor()
+                val stripBinaries = inputs.properties["stripReleaseBinaries"] as Boolean
+                if (stripBinaries) {
+                    runCatching {
+                        ProcessBuilder(stripCommand + asset.absolutePath)
+                            .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                            .redirectError(ProcessBuilder.Redirect.DISCARD)
+                            .start()
+                            .waitFor()
+                    }
                 }
                 assets += asset
             }
