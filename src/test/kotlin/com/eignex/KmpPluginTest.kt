@@ -64,6 +64,16 @@ class KmpPluginTest {
         }
     }
 
+    @Test
+    fun `ABI validation can be disabled`(@TempDir dir: File) {
+        val result = kmpProbe(dir, "eignexBuild { abiValidationEnabled.set(false) }")
+            .build("check", "--dry-run")
+
+        assertTrue(":checkKotlinAbi" !in result.dryRunTasks().joinToString("\n")) {
+            "ABI validation should be disabled, got:\n${result.output}"
+        }
+    }
+
     /** The task paths a `--dry-run` build reported, each printed as `:path SKIPPED`. */
     private fun BuildResult.dryRunTasks(): List<String> =
         output.lineSequence().mapNotNull { line ->

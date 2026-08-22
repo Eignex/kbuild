@@ -147,6 +147,32 @@ class CliPluginTest {
         assertTrue(probe.file("build/release-assets/custom-tool-4.5.6-jvm.zip").isFile)
     }
 
+    @Test
+    fun `release assets can use a custom directory`(@TempDir dir: File) {
+        val probe = writeProbe(
+            dir,
+            cliBlock = """
+                eignexCli {
+                    mainClass = "com.example.MainKt"
+                    releaseAssetsDirectory = "custom-assets"
+                }
+            """.trimIndent(),
+        )
+        probe.build("releaseAssets", "-PciVersion=4.5.6")
+
+        assertTrue(probe.file("custom-assets/probe-4.5.6-jvm.zip").isFile)
+    }
+
+    @Test
+    fun `release assets can be disabled`(@TempDir dir: File) {
+        val output = writeProbe(
+            dir,
+            cliBlock = "eignexCli { releaseAssetsEnabled = false }",
+        ).build("tasks", "--all").output
+
+        assertTrue("releaseAssets" !in output) { output }
+    }
+
     private fun sha256(file: File): String =
         MessageDigest.getInstance("SHA-256").digest(file.readBytes()).joinToString("") { "%02x".format(it) }
 

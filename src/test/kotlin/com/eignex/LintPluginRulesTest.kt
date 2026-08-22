@@ -123,6 +123,13 @@ class LintPluginRulesTest {
         assertTrue(probe.file("build/tmp/eignex-detekt.yml").readText().isEmpty())
     }
 
+    @Test
+    fun `lint tasks can be disabled`(@TempDir dir: File) {
+        val result = lintProbe(dir, "eignexLint { enabled.set(false) }").build("detekt")
+
+        result.assertOutcome(":detekt", TaskOutcome.SKIPPED)
+    }
+
     /**
      * Fails [task] and asserts detekt reported [rule] at [at] (a `file:line:col` position).
      *
