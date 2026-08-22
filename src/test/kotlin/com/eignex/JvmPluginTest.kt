@@ -1,5 +1,6 @@
 package com.eignex
 
+import org.gradle.testkit.runner.TaskOutcome
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -50,6 +51,59 @@ class JvmPluginTest {
         )
         val compile = probe.build("dependencies", "--configuration", "compileClasspath").output
         assertTrue("com.eignex:kbuild-platform" !in compile) { compile }
+    }
+
+    @Test
+    fun `platform coordinates and kotlin test dependency are configurable`(@TempDir dir: File) {
+        val probe = writeProbe(
+            dir,
+            buildBlock = """
+                eignexBuild {
+                    platformGroup.set("org.example")
+                    platformArtifact.set("example-bom")
+                    platformVersion.set("1.2.3")
+                    useKotlinTestDependency.set(false)
+                }
+            """.trimIndent(),
+        )
+        val compile = probe.build("dependencies", "--configuration", "compileClasspath").output
+        val test = probe.build("dependencies", "--configuration", "testCompileClasspath").output
+        assertTrue("org.example:example-bom:1.2.3" in compile) { compile }
+        assertTrue("org.example:example-bom:1.2.3" in test) { test }
+        assertTrue("org.jetbrains.kotlin:kotlin-test" !in test) { test }
+    }
+
+    @Test
+    fun `Maven Central can be disabled`(@TempDir dir: File) {
+        val probe = writeProbe(
+            dir,
+            buildBlock = """
+                eignexBuild { useMavenCentral.set(false) }
+                tasks.register("printRepositories") {
+                    doLast { println(repositories.map { it.name }) }
+                }
+            """.trimIndent(),
+        )
+        val output = probe.build("printRepositories").output
+        assertTrue("MavenRepo" !in output && "MavenCentral" !in output) { output }
+    }
+
+    @Test
+    fun `lint can be disabled for a JVM project`(@TempDir dir: File) {
+        val result = writeProbe(
+            dir,
+            buildBlock = "eignexBuild { lintEnabled.set(false) }",
+        ).build("detekt")
+        result.assertOutcome(":detekt", TaskOutcome.SKIPPED)
+    }
+
+    @Test
+    fun `Kover can be disabled for a JVM project`(@TempDir dir: File) {
+        val result = writeProbe(
+            dir,
+            buildBlock = "eignexBuild { koverEnabled.set(false) }",
+        ).build("koverVerify")
+        result.assertOutcome(":koverVerify", TaskOutcome.SKIPPED)
     }
 
     // The only test in this class that runs a real build. Gradle's default runner is JUnit 4, so
