@@ -2,21 +2,16 @@ package com.eignex.kbuild
 
 import org.gradle.api.provider.Property
 
-/** Configuration for the `com.eignex.publish` convention plugin. */
-abstract class EignexPublishExtension {
-    /** Maven artifact ID. Defaults to the Gradle project name. */
-    abstract val artifactId: Property<String>
+/** Eignex-flavoured defaults for the `com.eignex.publish` convention plugin. */
+abstract class EignexPublishExtension : MavenPublishExtension() {
 
-    /** POM description. */
-    abstract val description: Property<String>
-
-    /** GitHub repository in "Owner/repo" form, e.g. "Eignex/kencode". */
+    /** GitHub repository in "Owner/repo" form, used to derive URL and SCM defaults. */
     abstract val githubRepo: Property<String>
 
     /**
      * Whether to set up Maven publication and signing. Defaults to `true`. Set to `false` for
      * internal modules (benchmarks, samples) that use the build conventions but are never
-     * published. That skips the publication wiring and the [githubRepo] requirement.
+     * published. That skips the publication wiring and metadata validation.
      */
     abstract val publish: Property<Boolean>
 }
