@@ -24,4 +24,16 @@ abstract class EignexCliExtension {
      * [mainClass], falling back to the project group when [mainClass] is unset.
      */
     abstract val buildInfoPackage: Property<String>
+
+    /** Whether to register the `releaseAssets` task. Defaults to `true`. */
+    abstract val releaseAssetsEnabled: Property<Boolean>
+
+    /** Release asset prefix. Defaults to the project name. */
+    abstract val releaseAssetPrefix: Property<String>
+
+    /** Directory for release assets, relative to the project. */
+    abstract val releaseAssetsDirectory: Property<String>
+
+    /** Whether native release assets should be stripped. Defaults to `true`. */
+    abstract val stripReleaseBinaries: Property<Boolean>
 }

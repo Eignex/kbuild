@@ -76,6 +76,22 @@ class CliPluginTest {
         assertTrue(generated.isFile) { "expected the group-derived package, found ${probe.listGenerated()}" }
     }
 
+    @Test
+    fun `build info uses a consumer project group`(@TempDir dir: File) {
+        val probe = writeProbe(
+            dir,
+            cliBlock = """
+                group = "org.example"
+                eignexCli { entryPoint = "org.example.main" }
+            """.trimIndent(),
+        )
+        probe.build("generateCliBuildInfo")
+
+        val generated = probe.file("$GENERATED/org/example/BuildInfo.kt")
+        assertTrue(generated.isFile) { "expected the group-derived package, found ${probe.listGenerated()}" }
+        assertTrue("const val ID: String = \"org.example\"" in generated.readText())
+    }
+
     // srcDir(taskProvider) is what makes every target see BuildInfo; if that wiring is lost the
     // generator still runs standalone but no compilation depends on it.
     @Test
@@ -113,6 +129,22 @@ class CliPluginTest {
         // `shasum -a 256 -c SHA256SUMS` has to pass on the uploaded assets, which means the
         // digest is of the copied file and the name column is the asset name, not a path.
         assertEquals("${sha256(zip)}  probe-4.5.6-jvm.zip\n", sums.readText())
+    }
+
+    @Test
+    fun `release asset prefix is configurable`(@TempDir dir: File) {
+        val probe = writeProbe(
+            dir,
+            cliBlock = """
+                eignexCli {
+                    mainClass = "com.example.MainKt"
+                    releaseAssetPrefix = "custom-tool"
+                }
+            """.trimIndent(),
+        )
+        probe.build("releaseAssets", "-PciVersion=4.5.6")
+
+        assertTrue(probe.file("build/release-assets/custom-tool-4.5.6-jvm.zip").isFile)
     }
 
     private fun sha256(file: File): String =

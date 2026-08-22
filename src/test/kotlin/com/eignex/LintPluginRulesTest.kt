@@ -114,6 +114,15 @@ class LintPluginRulesTest {
         }
     }
 
+    @Test
+    fun `the built-in Eignex config can be disabled`(@TempDir dir: File) {
+        val probe = lintProbe(dir, "eignexLint { useEignexConfig.set(false) }")
+
+        probe.build("writeEignexDetektConfig")
+
+        assertTrue(probe.file("build/tmp/eignex-detekt.yml").readText().isEmpty())
+    }
+
     /**
      * Fails [task] and asserts detekt reported [rule] at [at] (a `file:line:col` position).
      *
