@@ -35,3 +35,31 @@ library, or cli for an application. The cli plugin needs targets declared by the
 `eignexCli { mainClass = "..."; entryPoint = "..." }` block.
 
 For your own projects, fork and publish your own version.
+
+### Generic Maven publishing
+
+Non-Eignex consumers should configure the `mavenPublish` extension. It has no metadata defaults;
+the build fails and lists any missing values when publication is configured.
+
+```kotlin
+mavenPublish {
+    description.set("A useful library")
+    projectUrl.set("https://example.com/library")
+    licenses {
+        license {
+            name.set("MIT")
+            url.set("https://opensource.org/license/mit")
+            distribution.set("repo")
+        }
+    }
+    scmUrl.set("https://example.com/library/source")
+    scmConnection.set("scm:git:https://example.com/library.git")
+    scmDeveloperConnection.set("scm:git:ssh://git@example.com/library.git")
+    developerId.set("example")
+    developerName.set("Example Org")
+    developerUrl.set("https://example.com")
+}
+```
+
+Eignex modules retain the Apache-2.0 default. Configuring `licenses` replaces that default and
+supports multiple entries; each entry may set `name`, `url`, and `distribution`.

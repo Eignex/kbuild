@@ -1,4 +1,7 @@
 import com.eignex.kbuild.EignexPublishExtension
+import com.eignex.kbuild.MavenPublishExtension
+import org.gradle.api.provider.Property
+import org.gradle.api.provider.Provider
 
 plugins {
     `maven-publish`
@@ -10,14 +13,74 @@ group = "com.eignex"
 version = findProperty("ciVersion") as String? ?: "SNAPSHOT"
 
 val eignexPublish = extensions.create<EignexPublishExtension>("eignexPublish")
+val mavenPublish = extensions.create<MavenPublishExtension>("mavenPublish")
+eignexPublish.licenseName.convention("Apache-2.0")
+eignexPublish.licenseUrl.convention("https://www.apache.org/licenses/LICENSE-2.0")
+eignexPublish.projectUrl.convention(eignexPublish.githubRepo.map { "https://github.com/$it" })
+eignexPublish.scmUrl.convention(eignexPublish.projectUrl)
+eignexPublish.scmConnection.convention(
+    eignexPublish.githubRepo.map { "scm:git:https://github.com/$it.git" },
+)
+eignexPublish.scmDeveloperConnection.convention(
+    eignexPublish.githubRepo.map { "scm:git:ssh://git@github.com/$it.git" },
+)
+eignexPublish.developerId.convention("rasros")
+eignexPublish.developerName.convention("Rasmus Ros")
+eignexPublish.developerUrl.convention("https://github.com/rasros")
 
 afterEvaluate {
     // Opt out for internal modules (benchmarks, samples): no publication, signing, or
-    // githubRepo requirement.
+    // projectUrl (or githubRepo, which supplies its default) is required for published metadata.
     if (!eignexPublish.publish.getOrElse(true)) return@afterEvaluate
 
-    val artifactId = eignexPublish.artifactId.getOrElse(project.name)
-    val githubRepo = eignexPublish.githubRepo.get()
+    fun Property<String>.valueOr(eignexValue: Provider<String>): String? = orElse(eignexValue).orNull
+
+    val missing = mutableListOf<String>()
+    fun required(name: String, value: String?): String {
+        if (value == null) missing += "mavenPublish.$name (or eignexPublish.$name)"
+        return value.orEmpty()
+    }
+
+    val artifactId = mavenPublish.artifactId.valueOr(eignexPublish.artifactId) ?: project.name
+    val pomDescription = required("description", mavenPublish.description.valueOr(eignexPublish.description))
+    val configuredLicenses = when {
+        mavenPublish.licenseEntries().isNotEmpty() -> mavenPublish.licenseEntries()
+        eignexPublish.licenseEntries().isNotEmpty() -> eignexPublish.licenseEntries()
+        else -> emptyList()
+    }
+    val licenses = if (configuredLicenses.isEmpty()) {
+        listOf(
+            Triple(
+                required("licenseName", mavenPublish.licenseName.valueOr(eignexPublish.licenseName)),
+                required("licenseUrl", mavenPublish.licenseUrl.valueOr(eignexPublish.licenseUrl)),
+                null,
+            ),
+        )
+    } else {
+        configuredLicenses.mapIndexed { index, license ->
+            Triple(
+                required("licenses[$index].name", license.name.orNull),
+                required("licenses[$index].url", license.url.orNull),
+                license.distribution.orNull,
+            )
+        }
+    }
+    val projectUrl = required("projectUrl", mavenPublish.projectUrl.valueOr(eignexPublish.projectUrl))
+    val scmUrl = required("scmUrl", mavenPublish.scmUrl.valueOr(eignexPublish.scmUrl))
+    val scmConnection = required("scmConnection", mavenPublish.scmConnection.valueOr(eignexPublish.scmConnection))
+    val scmDeveloperConnection = required(
+        "scmDeveloperConnection",
+        mavenPublish.scmDeveloperConnection.valueOr(eignexPublish.scmDeveloperConnection),
+    )
+    val developerId = required("developerId", mavenPublish.developerId.valueOr(eignexPublish.developerId))
+    val developerName = required("developerName", mavenPublish.developerName.valueOr(eignexPublish.developerName))
+    val developerUrl = required("developerUrl", mavenPublish.developerUrl.valueOr(eignexPublish.developerUrl))
+    if (missing.isNotEmpty()) {
+        throw GradleException(
+            "Missing Maven publication metadata: ${missing.joinToString()}. " +
+                "Configure mavenPublish { ... } or eignexPublish { ... }.",
+        )
+    }
 
     fun createJavadocJarTask(pubName: String): TaskProvider<Jar> {
         return tasks.register<Jar>("${pubName}JavadocJar") {
@@ -34,24 +97,27 @@ afterEvaluate {
     fun MavenPublication.configureCommonPom() {
         pom {
             name.set(artifactId)
-            description.set(eignexPublish.description.getOrElse(""))
-            url.set("https://github.com/$githubRepo")
+            description.set(pomDescription)
+            url.set(projectUrl)
             licenses {
-                license {
-                    name.set("Apache-2.0")
-                    url.set("https://www.apache.org/licenses/LICENSE-2.0")
+                licenses.forEach { (name, url, distribution) ->
+                    license {
+                        this.name.set(name)
+                        this.url.set(url)
+                        distribution?.let { this.distribution.set(it) }
+                    }
                 }
             }
             scm {
-                url.set("https://github.com/$githubRepo")
-                connection.set("scm:git:https://github.com/$githubRepo.git")
-                developerConnection.set("scm:git:ssh://git@github.com/$githubRepo.git")
+                url.set(scmUrl)
+                connection.set(scmConnection)
+                developerConnection.set(scmDeveloperConnection)
             }
             developers {
                 developer {
-                    id.set("rasros")
-                    name.set("Rasmus Ros")
-                    url.set("https://github.com/rasros")
+                    id.set(developerId)
+                    name.set(developerName)
+                    url.set(developerUrl)
                 }
             }
         }

@@ -14,7 +14,7 @@ import java.io.File
 class PublishPluginTest {
 
     @Test
-    fun `the generated pom carries the extension metadata and the fixed license, scm and developer`(
+    fun `the generated pom carries the extension metadata and default license, scm and developer`(
         @TempDir dir: File,
     ) {
         val probe = writeProbe(dir)
@@ -33,6 +33,141 @@ class PublishPluginTest {
     }
 
     @Test
+    fun `configured license replaces the default`(@TempDir dir: File) {
+        val probe = writeProbe(
+            dir,
+            publishBlock = """
+                eignexPublish {
+                    description.set("A probe module.")
+                    githubRepo.set("Eignex/probe")
+                    licenses {
+                        license {
+                            name.set("GPL-3.0-only")
+                            url.set("https://www.gnu.org/licenses/gpl-3.0.html")
+                            distribution.set("repo")
+                        }
+                    }
+                }
+            """.trimIndent(),
+        )
+        probe.build("generatePomFileForMavenJavaPublication")
+
+        val pom = probe.file(POM).readText()
+        assertTrue("<name>GPL-3.0-only</name>" in pom) { pom }
+        assertTrue("<url>https://www.gnu.org/licenses/gpl-3.0.html</url>" in pom) { pom }
+        assertTrue("<distribution>repo</distribution>" in pom) { pom }
+        assertFalse("<name>Apache-2.0</name>" in pom) { pom }
+    }
+
+    @Test
+    fun `multiple configured licenses are emitted`(@TempDir dir: File) {
+        val probe = writeProbe(
+            dir,
+            publishBlock = """
+                eignexPublish {
+                    description.set("A probe module.")
+                    githubRepo.set("Eignex/probe")
+                    licenses {
+                        license {
+                            name.set("Apache-2.0")
+                            url.set("https://www.apache.org/licenses/LICENSE-2.0.txt")
+                            distribution.set("repo")
+                        }
+                        license {
+                            name.set("BSD-3-Clause")
+                            url.set("https://opensource.org/license/bsd-3-clause")
+                            distribution.set("repo")
+                        }
+                    }
+                }
+            """.trimIndent(),
+        )
+        probe.build("generatePomFileForMavenJavaPublication")
+
+        val pom = probe.file(POM).readText()
+        assertTrue("<name>Apache-2.0</name>" in pom) { pom }
+        assertTrue("<name>BSD-3-Clause</name>" in pom) { pom }
+    }
+
+    @Test
+    fun `configured licenses apply to every KMP publication`(@TempDir dir: File) {
+        val probe = writeKmpProbe(
+            dir,
+            publishBlock = """
+                eignexPublish {
+                    description.set("A probe module.")
+                    githubRepo.set("Eignex/probe")
+                    licenses {
+                        license {
+                            name.set("Apache-2.0")
+                            url.set("https://www.apache.org/licenses/LICENSE-2.0.txt")
+                        }
+                        license {
+                            name.set("BSD-3-Clause")
+                            url.set("https://opensource.org/license/bsd-3-clause")
+                        }
+                    }
+                }
+            """.trimIndent(),
+        )
+
+        probe.build(*KMP_PUBLICATIONS.map { "generatePomFileFor${it.capitalizeFirst()}Publication" }.toTypedArray())
+
+        for (pub in KMP_PUBLICATIONS) {
+            val pom = probe.file("build/publications/$pub/pom-default.xml").readText()
+            assertTrue("<name>Apache-2.0</name>" in pom) { "$pub:\n$pom" }
+            assertTrue("<name>BSD-3-Clause</name>" in pom) { "$pub:\n$pom" }
+        }
+    }
+
+    @Test
+    fun `license can be configured through the extension`(@TempDir dir: File) {
+        val probe = writeProbe(
+            dir,
+            publishBlock = extension().replace(
+                "    githubRepo.set(\"Eignex/probe\")",
+                "    githubRepo.set(\"Eignex/probe\")\n" +
+                    "    licenseName.set(\"MIT\")\n" +
+                    "    licenseUrl.set(\"https://opensource.org/license/mit\")",
+            ),
+        )
+        probe.build("generatePomFileForMavenJavaPublication")
+
+        val pom = probe.file(POM).readText()
+        assertTrue("<name>MIT</name>" in pom) { pom }
+        assertTrue("<url>https://opensource.org/license/mit</url>" in pom) { pom }
+    }
+
+    @Test
+    fun `mavenPublish configures project scm and developer metadata without githubRepo`(@TempDir dir: File) {
+        val probe = writeProbe(
+            dir,
+            publishBlock = """
+                mavenPublish {
+                    description.set("A probe module.")
+                    licenseName.set("MIT")
+                    licenseUrl.set("https://opensource.org/license/mit")
+                    projectUrl.set("https://example.com/probe")
+                    scmUrl.set("https://example.com/probe/source")
+                    scmConnection.set("scm:git:https://example.com/probe.git")
+                    scmDeveloperConnection.set("scm:git:ssh://git@example.com/probe.git")
+                    developerId.set("example")
+                    developerName.set("Example Org")
+                    developerUrl.set("https://example.com")
+                }
+            """.trimIndent(),
+        )
+        probe.build("generatePomFileForMavenJavaPublication")
+
+        val pom = probe.file(POM).readText()
+        assertTrue("<url>https://example.com/probe</url>" in pom) { pom }
+        assertTrue("scm:git:https://example.com/probe.git" in pom) { pom }
+        assertTrue("scm:git:ssh://git@example.com/probe.git" in pom) { pom }
+        assertTrue("<id>example</id>" in pom) { pom }
+        assertTrue("<name>Example Org</name>" in pom) { pom }
+    }
+
+    @Test
     fun `artifactId overrides the project name in the pom`(@TempDir dir: File) {
         val probe = writeProbe(dir, publishBlock = extension(artifactId = "probe-core"))
         probe.build("generatePomFileForMavenJavaPublication")
@@ -43,14 +178,14 @@ class PublishPluginTest {
         assertTrue("<name>probe-core</name>" in pom) { pom }
     }
 
-    // githubRepo has no default on purpose: a published pom pointing at the wrong repository is
-    // worse than a build that stops.
+    // projectUrl has no default without githubRepo: a published pom pointing at the wrong
+    // repository is worse than a build that stops.
     @Test
-    fun `a missing githubRepo fails configuration`(@TempDir dir: File) {
+    fun `a missing projectUrl and githubRepo fails configuration`(@TempDir dir: File) {
         val probe = writeProbe(dir, publishBlock = "eignexPublish { description.set(\"A probe module.\") }")
         val output = probe.buildAndFail("generatePomFileForMavenJavaPublication").output
-        assertTrue("githubRepo" in output) {
-            "expected a failure naming the unset githubRepo, got:\n$output"
+        assertTrue("projectUrl" in output) {
+            "expected a failure naming the unset projectUrl, got:\n$output"
         }
     }
 
