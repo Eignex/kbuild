@@ -14,10 +14,6 @@
 [![Build](https://github.com/eignex/kbuild/actions/workflows/build.yml/badge.svg)](https://github.com/eignex/kbuild/actions/workflows/build.yml)
 [![License](https://img.shields.io/github/license/eignex/kbuild)](https://github.com/eignex/kbuild/blob/main/LICENSE)
 
-> This repository is intended for internal use, but feel free to use however you want.
-
----
-
 ## Plugins
 
 KBuild provides five convention plugins:
@@ -60,19 +56,19 @@ but every value can be replaced or disabled:
 
 | Property | Default | Purpose |
 | --- | --- | --- |
-| `jvmToolchain` | `25` | Kotlin JVM compilation and Detekt |
-| `usePlatformDependencies` | `true` | Add the platform BOM |
-| `useKotlinTestDependency` | `true` | Add `kotlin-test` to test source sets |
-| `useMavenCentral` | `true` | Add Maven Central to repositories |
-| `platformGroup` | `com.eignex` | Platform BOM group |
-| `defaultGroup` | `com.eignex` | CLI build-info group fallback |
-| `platformArtifact` | `kbuild-platform` | Platform BOM artifact |
-| `platformVersion` | Current KBuild version | Platform BOM version |
-| `nodeVersion` | `25.0.0` | KMP JavaScript and Wasm Node.js |
-| `jsTestTimeout` | `120s` | KMP Mocha and Karma tests |
-| `koverEnabled` | `true` | Kover tasks |
-| `abiValidationEnabled` | `true` | KMP ABI validation |
-| `lintEnabled` | `true` | Convention lint tasks |
+| jvmToolchain | `25` | Kotlin JVM compilation and Detekt |
+| usePlatformDependencies | `true` | Add the platform BOM |
+| useKotlinTestDependency | `true` | Add `kotlin-test` to test source sets |
+| useMavenCentral | `true` | Add Maven Central to repositories |
+| platformGroup | `com.eignex` | Platform BOM group |
+| defaultGroup | `com.eignex` | CLI build-info group fallback |
+| platformArtifact | `kbuild-platform` | Platform BOM artifact |
+| platformVersion | Current KBuild version | Platform BOM version |
+| nodeVersion | `25.0.0` | KMP JavaScript and Wasm Node.js |
+| jsTestTimeout | `120s` | KMP Mocha and Karma tests |
+| koverEnabled | `true` | Kover tasks |
+| abiValidationEnabled | `true` | KMP ABI validation |
+| lintEnabled | `true` | Convention lint tasks |
 
 ```kotlin
 eignexBuild {
@@ -104,16 +100,16 @@ Configure the JVM main class and Native entry point with `eignexCli`:
 
 | Property | Default |
 | --- | --- |
-| `mainClass` | No convention; set the JVM executable main class |
-| `entryPoint` | Kotlin/Native executable default |
-| `version` | Project version |
-| `appName` | Project name |
-| `appId` | Project group, or `eignexBuild.defaultGroup` when blank |
-| `buildInfoPackage` | Package of `mainClass`, or the project-group fallback |
-| `releaseAssetsEnabled` | `true` |
-| `releaseAssetPrefix` | Project name |
-| `releaseAssetsDirectory` | `build/release-assets` |
-| `stripReleaseBinaries` | `true` |
+| mainClass | No convention; set the JVM executable main class |
+| entryPoint | Kotlin/Native executable default |
+| version | Project version |
+| appName | Project name |
+| appId | Project group, or `eignexBuild.defaultGroup` when blank |
+| buildInfoPackage | Package of `mainClass`, or the project-group fallback |
+| releaseAssetsEnabled | `true` |
+| releaseAssetPrefix | Project name |
+| releaseAssetsDirectory | `build/release-assets` |
+| stripReleaseBinaries | `true` |
 
 ```kotlin
 eignexCli {
@@ -168,11 +164,11 @@ backtick test names containing `(`, `)`, or `#`.
 
 | Property | Default |
 | --- | --- |
-| `enabled` | `true` |
-| `useEignexConfig` | `true` |
-| `autoCorrect` | `true` |
-| `htmlReport` | `true` |
-| `sarifReport` | `false` |
+| enabled | `true` |
+| useEignexConfig | `true` |
+| autoCorrect | `true` |
+| htmlReport | `true` |
+| sarifReport | `false` |
 
 Use `eignexLint` to change the lint policy:
 
@@ -247,18 +243,18 @@ The `eignexPublish` defaults are:
 
 | Property | Default |
 | --- | --- |
-| `githubRepo` | None; `Owner/repo`, used for GitHub URL and SCM defaults |
-| `publish` | `true` |
-| `artifactId` | Project name |
-| `licenseName` | `Apache-2.0` |
-| `licenseUrl` | `https://www.apache.org/licenses/LICENSE-2.0` |
-| `projectUrl` | `https://github.com/<githubRepo>` |
-| `scmUrl` | `projectUrl` |
-| `scmConnection` | `scm:git:https://github.com/<githubRepo>.git` |
-| `scmDeveloperConnection` | `scm:git:ssh://git@github.com/<githubRepo>.git` |
-| `developerId` | `rasros` |
-| `developerName` | `Rasmus Ros` |
-| `developerUrl` | `https://github.com/rasros` |
+| githubRepo | None; `Owner/repo`, used for GitHub URL and SCM defaults |
+| publish | `true` |
+| artifactId | Project name |
+| licenseName | `Apache-2.0` |
+| licenseUrl | `https://www.apache.org/licenses/LICENSE-2.0` |
+| projectUrl | `https://github.com/<githubRepo>` |
+| scmUrl | `projectUrl` |
+| scmConnection | `scm:git:https://github.com/<githubRepo>.git` |
+| scmDeveloperConnection | `scm:git:ssh://git@github.com/<githubRepo>.git` |
+| developerId | `rasros` |
+| developerName | `Rasmus Ros` |
+| developerUrl | `https://github.com/rasros` |
 
 Set `publish` to `false` for modules that use the conventions but should not create a Maven
 publication or validate publication metadata.
@@ -291,10 +287,10 @@ mavenPublish {
 }
 ```
 
-Required generic metadata is `description`, `projectUrl`, `scmUrl`, `scmConnection`,
-`scmDeveloperConnection`, `developerId`, `developerName`, and `developerUrl`. Provide either
+Required generic metadata is description, projectUrl, scmUrl, scmConnection,
+scmDeveloperConnection, developerId, developerName, and developerUrl. Provide either
 `licenseName`/`licenseUrl`, or one or more `licenses { license { ... } }` entries. Each license
-entry supports `name`, `url`, and optional `distribution`. Configured license entries replace the
+entry supports name, url, and optional distribution. Configured license entries replace the
 Eignex Apache default and support multiple licenses.
 
 For your own projects, fork and publish your own version.
