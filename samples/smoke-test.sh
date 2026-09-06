@@ -75,8 +75,8 @@ elif ! (cd cli-positive/build/release-assets && sha256sum --check --quiet SHA256
     fail=1
 fi
 run_negative jvm-negative-fqn        detektMain UnnecessaryFullyQualifiedName
-run_negative jvm-negative-undoc      detekt     UndocumentedPublicClass
-run_negative jvm-negative-sentence   detekt     EndOfSentenceFormat
-run_negative jvm-negative-deprecated detekt     DeprecatedBlockTag
+run_negative jvm-negative-undoc      detektMain UndocumentedPublicClass
+run_negative jvm-negative-sentence   detektMain EndOfSentenceFormat
+run_negative jvm-negative-deprecated detektMain DeprecatedBlockTag
 
 exit "$fail"
