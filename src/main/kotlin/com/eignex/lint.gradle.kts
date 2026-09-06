@@ -139,6 +139,29 @@ pluginManager.withPlugin("org.jetbrains.kotlin.multiplatform") {
     }
 }
 
+// Detekt registers an aggregate `detekt` task that re-scans the whole source tree on top of the
+// per-source-set tasks, and `check` depends on every Detekt task, so the aggregate only repeats
+// analysis. Its report metrics equal the sum of the per-source-set reports, so nothing is lost by
+// dropping it; on a large module it is the longest task in the build. Guarded on a Kotlin plugin
+// being applied, since without source sets the aggregate is the only task there is.
+listOf("org.jetbrains.kotlin.jvm", "org.jetbrains.kotlin.multiplatform").forEach { kotlinPlugin ->
+    pluginManager.withPlugin(kotlinPlugin) {
+        tasks.matching { it.name == "detekt" }.configureEach {
+            enabled = false
+        }
+    }
+}
+
+// On a JVM project detekt registers both `detektMain`/`detektTest` and a `*SourceSet` twin over the
+// same files. Only the former carries a compile classpath, and type resolution strictly widens the
+// rule set, so the twins are dropped and the resolving pair kept.
+pluginManager.withPlugin("org.jetbrains.kotlin.jvm") {
+    tasks.matching { it.name == "detektMainSourceSet" || it.name == "detektTestSourceSet" }
+        .configureEach {
+            enabled = false
+        }
+}
+
 // Kotlin/Native (and Android dex) reject backtick-identifier chars the JVM accepts: `foo (#389)`
 // compiles for jvm then fails the native compile cryptically. Caught here with a file:line.
 val checkNativeSafeTestNames = tasks.register("checkNativeSafeTestNames") {
