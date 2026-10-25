@@ -322,6 +322,13 @@ publication or validate publication metadata.
 
 ### Generic Maven publishing
 
+All JVM and KMP publications created by `com.eignex.publish` use the same Maven Central bundle
+policy: keep payloads, sources, documentation, Gradle/Kotlin metadata, detached signatures, and
+required MD5/SHA-1 checksums; omit optional SHA-256/SHA-512 sidecars and checksums of signatures.
+Each signed payload therefore takes four bundle files instead of six. This applies to downstream
+libraries automatically, including target-specific publications. Direct local staging and snapshot
+repository uploads bypass the Central bundle and retain Gradle's normal checksum behavior.
+
 Non-Eignex consumers should configure the `mavenPublish` extension. It has no generic metadata
 defaults; the build fails and lists every missing required value when publication is configured.
 A `mavenPublish` value overrides the corresponding `eignexPublish` value when both extensions are
