@@ -1,11 +1,17 @@
+import org.jetbrains.kotlin.konan.target.HostManager
+import org.jetbrains.kotlin.konan.target.KonanTarget
+
 plugins {
     id("com.eignex.cli")
 }
 
 kotlin {
     jvm()
-    linuxX64()
-    macosArm64()
+    when (HostManager.host) {
+        KonanTarget.LINUX_X64 -> linuxX64()
+        KonanTarget.MACOS_ARM64 -> macosArm64()
+        else -> Unit
+    }
 }
 
 eignexCli {

@@ -25,15 +25,27 @@ internal class GradleProbe(private val projectDir: File) {
     fun file(path: String): File = projectDir.resolve(path)
 
     /** Runs [args] and requires the build to succeed. */
-    fun build(vararg args: String): BuildResult = runner(args).build()
+    fun build(vararg args: String): BuildResult = runner(args).build().also { result ->
+        val warnings = result.output.lineSequence().filter { BUILD_WARNING.containsMatchIn(it) }.toList()
+        check(warnings.isEmpty()) { "Build emitted warnings:\n${warnings.joinToString("\n")}" }
+    }
 
     /** Runs [args] and requires the build to fail. */
     fun buildAndFail(vararg args: String): BuildResult = runner(args).buildAndFail()
 
+    private companion object {
+        val BUILD_WARNING = Regex("""^w:|^warning:|ExperimentalWarning|^Deprecated Gradle features""", RegexOption.IGNORE_CASE)
+    }
+
     private fun runner(args: Array<out String>): GradleRunner =
         GradleRunner.create()
             .withProjectDir(projectDir)
-            .withArguments(*args, "--stacktrace")
+            .withArguments(
+                *args,
+                "--stacktrace",
+                "--warning-mode=fail",
+                "-Dorg.gradle.java.installations.paths=${System.getProperty("kbuild.test.javaInstallations")}",
+            )
             .withPluginClasspath()
 }
 
@@ -44,7 +56,12 @@ internal fun BuildResult.assertOutcome(task: String, outcome: TaskOutcome) {
 
 /** A probe project named `probe` whose build script is [buildScript]. */
 internal fun probe(dir: File, buildScript: String): GradleProbe = GradleProbe(dir).apply {
-    write("settings.gradle.kts", "rootProject.name = \"probe\"\n")
+    write("settings.gradle.kts", """
+        plugins {
+            id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
+        }
+        rootProject.name = "probe"
+    """.trimIndent() + "\n")
     write("build.gradle.kts", buildScript.trimIndent() + "\n")
 }
 

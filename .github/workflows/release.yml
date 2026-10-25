@@ -23,15 +23,18 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           # Tags are needed to derive the next snapshot version on a main push.
           fetch-depth: 0
 
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
-          java-version: '25'
+          java-version: |
+            17
+            21
+            25
 
       # Reads the build and configuration caches that build.yml writes, read-only so
       # release runs never seed them.
@@ -115,7 +118,7 @@ jobs:
 
       - name: Create GitHub release
         if: github.ref_type == 'tag' && env.IS_SNAPSHOT == 'false'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           prerelease: ${{ env.IS_PRERELEASE }}
           generate_release_notes: true

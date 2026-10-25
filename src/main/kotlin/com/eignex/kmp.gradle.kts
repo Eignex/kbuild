@@ -1,6 +1,7 @@
 import com.eignex.kbuild.JsTestFrameworkTimeout
 import com.eignex.kbuild.applyKbuildCommonDependencies
 import com.eignex.kbuild.getOrCreateEignexBuildExtension
+import com.eignex.kbuild.configureKbuildJvm
 import org.jetbrains.kotlin.gradle.dsl.abi.ExperimentalAbiValidation
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsEnvSpec
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsPlugin
@@ -28,8 +29,7 @@ kotlin {
     applyKbuildCommonDependencies(project, eignexBuild)
 }
 
-// Node 25's V8 has stable exnref (wasmWasi's Kotlin 2.3 output); node 24's is experimental
-// and flaky under load. No-op without js/wasm targets.
+// Node 26 provides stable exnref for Kotlin/Wasm output. No-op without JS/Wasm targets.
 plugins.withType<WasmNodeJsPlugin> {
     the<WasmNodeJsEnvSpec>().version.set(eignexBuild.nodeVersion)
 }
@@ -72,6 +72,7 @@ val writeEignexKarmaConfig = tasks.register("writeEignexKarmaConfig") {
 tasks.withType<KotlinJsTest>().configureEach { dependsOn(writeEignexKarmaConfig) }
 
 afterEvaluate {
+    configureKbuildJvm(eignexBuild)
     if (eignexBuild.useMavenCentral.get()) repositories.mavenCentral()
     if (eignexBuild.abiValidationEnabled.get()) {
         @OptIn(ExperimentalAbiValidation::class)

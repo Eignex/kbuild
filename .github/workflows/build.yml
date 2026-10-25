@@ -19,13 +19,16 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up JDK
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
-          java-version: 25
+          java-version: |
+            17
+            21
+            25
 
       # Persists the Gradle home incl. the build and configuration caches across runs.
       - name: Set up Gradle
@@ -35,10 +38,10 @@ jobs:
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 
       - name: Cache Kotlin/Native toolchain
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/.konan
-          key: ${{ runner.os }}-konan-${{ hashFiles('build.gradle.kts') }}
+          key: ${{ runner.os }}-konan-${{ hashFiles('build.gradle.kts', 'gradle/libs.versions.toml') }}
           restore-keys: ${{ runner.os }}-konan-
 
       - name: Grant execute permission for Gradle
@@ -46,6 +49,16 @@ jobs:
 
       - name: Build
         run: ./gradlew build
+
+      - name: Set up Android consumer tools
+        run: |
+          android_cli="$RUNNER_TEMP/android"
+          android_sdk="$RUNNER_TEMP/android-sdk"
+          curl -fsSL https://dl.google.com/android/cli/latest/linux_x86_64/android -o "$android_cli"
+          chmod +x "$android_cli"
+          "$android_cli" --no-metrics --sdk="$android_sdk" sdk install build-tools/37.0.0 platforms/android-36
+          echo "ANDROID_HOME=$android_sdk" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$android_sdk" >> "$GITHUB_ENV"
 
       - name: Sample smoke test
         run: ./samples/smoke-test.sh
@@ -69,10 +82,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up JDK
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: 25
@@ -85,10 +98,10 @@ jobs:
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 
       - name: Cache Kotlin/Native toolchain
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/.konan
-          key: ${{ runner.os }}-konan-${{ hashFiles('build.gradle.kts') }}
+          key: ${{ runner.os }}-konan-${{ hashFiles('build.gradle.kts', 'gradle/libs.versions.toml') }}
           restore-keys: ${{ runner.os }}-konan-
 
       - name: Grant execute permission for Gradle
@@ -97,7 +110,9 @@ jobs:
       - name: CLI sample check and release assets
         run: |
           cd samples
-          ../gradlew --no-daemon :cli-positive:check :cli-positive:releaseAssets
+          # Kotlin/Native defaults to four cache threads, exceeding this runner's CPU count.
+          native_threads=$(sysctl -n hw.logicalcpu)
+          ../gradlew --no-daemon -Pkotlin.native.parallelThreads="$((native_threads < 4 ? native_threads : 4))" :cli-positive:check :cli-positive:releaseAssets
 
       - name: Verify release assets
         run: |

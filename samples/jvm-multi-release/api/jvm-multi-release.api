@@ -1,0 +1,4 @@
+public final class com/example/BackendInfoKt {
+	public static final fun backend ()Ljava/lang/String;
+}
+

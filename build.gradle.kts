@@ -39,6 +39,11 @@ java {
 
 tasks.named<Test>("test") {
     useJUnitPlatform()
+    val testJdks = listOf(17, 21, 25).map { jdk ->
+        javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(jdk)) }
+            .get().metadata.installationPath.asFile.absolutePath
+    }
+    systemProperty("kbuild.test.javaInstallations", testJdks.joinToString(","))
 }
 
 val generatedVersionDir = layout.buildDirectory.dir("generated/kbuildVersion/kotlin")

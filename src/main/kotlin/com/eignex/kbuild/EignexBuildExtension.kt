@@ -1,11 +1,21 @@
 package com.eignex.kbuild
 
+import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Property
 
 /** Shared defaults and opt-outs used by the JVM, KMP, and CLI convention plugins. */
 abstract class EignexBuildExtension {
     /** JVM toolchain used by Kotlin and lint. Defaults to 25. */
     abstract val jvmToolchain: Property<Int>
+
+    /** Published JVM bytecode baseline. Defaults to [jvmToolchain]. */
+    abstract val jvmTarget: Property<Int>
+
+    /** Optional newer JVM release packaged under `META-INF/versions/<release>`. */
+    abstract val multiReleaseJvmVersion: Property<Int>
+
+    /** JDKs on which to run tests against the packaged JVM JAR. Defaults to an empty list. */
+    abstract val packagedTestJdks: ListProperty<Int>
 
     /** Whether to add the platform BOM and kotlin-test dependencies. */
     abstract val usePlatformDependencies: Property<Boolean>
@@ -28,7 +38,7 @@ abstract class EignexBuildExtension {
     /** Version of the platform BOM. Defaults to this build's platform version. */
     abstract val platformVersion: Property<String>
 
-    /** Node.js version used by JS and Wasm tests. Defaults to `25.0.0`. */
+    /** Node.js version used by JS and Wasm tests. Defaults to `26.12.1`. */
     abstract val nodeVersion: Property<String>
 
     /** JavaScript test timeout. Defaults to `120s`. */

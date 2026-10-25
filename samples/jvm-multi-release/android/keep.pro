@@ -1,0 +1,1 @@
+-keep class consumer.AndroidConsumer { public static java.lang.String backend(); }
