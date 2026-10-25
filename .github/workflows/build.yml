@@ -106,7 +106,9 @@ jobs:
       - name: CLI sample check and release assets
         run: |
           cd samples
-          ../gradlew --no-daemon :cli-positive:check :cli-positive:releaseAssets
+          # Kotlin/Native defaults to four cache threads, exceeding this runner's CPU count.
+          native_threads=$(sysctl -n hw.logicalcpu)
+          ../gradlew --no-daemon -Pkotlin.native.parallelThreads="$((native_threads < 4 ? native_threads : 4))" :cli-positive:check :cli-positive:releaseAssets
 
       - name: Verify release assets
         run: |
