@@ -50,6 +50,11 @@ jobs:
       - name: Build
         run: ./gradlew build
 
+      - name: Verify publication file budget locally
+        run: |
+          ./gradlew publishAllPublicationsToMavenCentralStagingRepository mavenCentralBundle
+          python3 .github/scripts/check-publication-files.py build/maven-central-publishing/bundle.zip platform/build/maven-central-publishing/bundle.zip
+
       - name: Set up Android consumer tools
         run: |
           android_cli="$RUNNER_TEMP/android"
