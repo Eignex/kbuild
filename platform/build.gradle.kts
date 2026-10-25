@@ -1,8 +1,9 @@
+import org.gradle.api.publish.maven.tasks.PublishToMavenRepository
+
 plugins {
     `java-platform`
     `maven-publish`
     signing
-    id("io.github.sgtsilvio.gradle.maven-central-publishing")
 }
 
 group = "com.eignex"
@@ -55,6 +56,11 @@ publishing {
     }
 
     repositories {
+        // The root project owns the only Portal bundle and upload task.
+        maven {
+            name = "mavenCentralStaging"
+            url = uri(rootProject.layout.buildDirectory.dir("maven-central-publishing/staging-repository"))
+        }
         maven {
             name = "sonatypeSnapshots"
             url = uri("https://central.sonatype.com/repository/maven-snapshots/")
@@ -64,6 +70,13 @@ publishing {
             }
         }
     }
+}
+
+// The root cleanup must finish before either project writes to the shared staging directory.
+tasks.withType<PublishToMavenRepository>().matching {
+    it.name.endsWith("ToMavenCentralStagingRepository")
+}.configureEach {
+    dependsOn(":cleanMavenCentralStagingRepository")
 }
 
 signing {

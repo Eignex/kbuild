@@ -50,10 +50,12 @@ jobs:
       - name: Build
         run: ./gradlew build
 
-      - name: Verify publication file budget locally
+      - name: Verify combined Central deployment locally
         run: |
-          ./gradlew publishAllPublicationsToMavenCentralStagingRepository mavenCentralBundle
-          python3 .github/scripts/check-publication-files.py build/maven-central-publishing/bundle.zip platform/build/maven-central-publishing/bundle.zip
+          ./gradlew mavenCentralBundle
+          # Avoid serializing upload credentials while inspecting the plan without secrets.
+          ./gradlew publishToMavenCentral --dry-run --no-configuration-cache --console=plain > build/central-publish-plan.txt
+          python3 .github/scripts/check-publication-files.py build/maven-central-publishing/bundle.zip --publish-plan build/central-publish-plan.txt
 
       - name: Set up Android consumer tools
         run: |

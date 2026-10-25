@@ -126,6 +126,16 @@ allprojects {
     }
 }
 
+// One Portal deployment contains the plugin, all plugin markers, and the platform BOM.
+// Both projects stage into this project's repository before its sole bundle is assembled.
+tasks.named<Zip>("mavenCentralBundle") {
+    dependsOn(
+        "publishAllPublicationsToMavenCentralStagingRepository",
+        ":kbuild-platform:publishAllPublicationsToMavenCentralStagingRepository",
+    )
+    duplicatesStrategy = DuplicatesStrategy.FAIL
+}
+
 publishing {
     publications {
         withType<MavenPublication>().configureEach {
