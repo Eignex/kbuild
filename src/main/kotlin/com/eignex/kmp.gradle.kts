@@ -29,8 +29,7 @@ kotlin {
     applyKbuildCommonDependencies(project, eignexBuild)
 }
 
-// Node 25's V8 has stable exnref (wasmWasi's Kotlin 2.3 output); node 24's is experimental
-// and flaky under load. No-op without js/wasm targets.
+// Node 26 provides stable exnref for Kotlin/Wasm output. No-op without JS/Wasm targets.
 plugins.withType<WasmNodeJsPlugin> {
     the<WasmNodeJsEnvSpec>().version.set(eignexBuild.nodeVersion)
 }

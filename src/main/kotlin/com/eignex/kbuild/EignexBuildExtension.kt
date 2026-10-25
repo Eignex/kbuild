@@ -38,7 +38,7 @@ abstract class EignexBuildExtension {
     /** Version of the platform BOM. Defaults to this build's platform version. */
     abstract val platformVersion: Property<String>
 
-    /** Node.js version used by JS and Wasm tests. Defaults to `25.0.0`. */
+    /** Node.js version used by JS and Wasm tests. Defaults to `26.12.1`. */
     abstract val nodeVersion: Property<String>
 
     /** JavaScript test timeout. Defaults to `120s`. */

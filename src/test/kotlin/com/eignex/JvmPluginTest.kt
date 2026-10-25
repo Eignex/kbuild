@@ -117,8 +117,8 @@ class JvmPluginTest {
             // com.eignex:kbuild-platform constrains junit for consumers.
             extraDependencies = """
             dependencies {
-                "testImplementation"("org.junit.jupiter:junit-jupiter:6.1.2")
-                "testRuntimeOnly"("org.junit.platform:junit-platform-launcher:6.1.2")
+                "testImplementation"("org.junit.jupiter:junit-jupiter:6.1.3")
+                "testRuntimeOnly"("org.junit.platform:junit-platform-launcher:6.1.3")
             }
             """.trimIndent(),
         )

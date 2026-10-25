@@ -183,6 +183,8 @@ class CliPluginTest {
         val host = hostNativeTarget()
         val foreign = if (host == "linuxX64") "macosArm64" else "linuxX64"
         val probe = writeProbe(dir, targets = "jvm()\n    $host()\n    $foreign()")
+        // This probe deliberately declares a foreign target to verify its exclusion.
+        probe.write("gradle.properties", "kotlin.native.ignoreDisabledTargets=true\n")
 
         val output = probe.build("releaseAssets", "--dry-run").output
         assertTrue(":linkReleaseExecutable${host.capitalizeFirst()} SKIPPED" in output) {

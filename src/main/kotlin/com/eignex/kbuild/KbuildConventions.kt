@@ -24,7 +24,7 @@ internal fun Project.getOrCreateEignexBuildExtension(): EignexBuildExtension =
         it.defaultGroup.convention("com.eignex")
         it.platformArtifact.convention("kbuild-platform")
         it.platformVersion.convention(KBUILD_VERSION)
-        it.nodeVersion.convention("25.0.0")
+        it.nodeVersion.convention("26.12.1")
         it.jsTestTimeout.convention("120s")
         it.koverEnabled.convention(true)
         it.abiValidationEnabled.convention(true)

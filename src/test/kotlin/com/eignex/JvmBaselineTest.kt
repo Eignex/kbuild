@@ -36,8 +36,8 @@ class JvmBaselineTest {
             }
             ${if (kmp) "kotlin { jvm() }; tasks.named<Test>(\"jvmTest\") { useJUnitPlatform() }" else ""}
             dependencies {
-                "${if (kmp) "jvmTestImplementation" else "testImplementation"}"("org.junit.jupiter:junit-jupiter:6.1.2")
-                "${if (kmp) "jvmTestRuntimeOnly" else "testRuntimeOnly"}"("org.junit.platform:junit-platform-launcher:6.1.2")
+                "${if (kmp) "jvmTestImplementation" else "testImplementation"}"("org.junit.jupiter:junit-jupiter:6.1.3")
+                "${if (kmp) "jvmTestRuntimeOnly" else "testRuntimeOnly"}"("org.junit.platform:junit-platform-launcher:6.1.3")
             }
         """)
         probe.write("src/$main/kotlin/example/Api.kt", """

@@ -67,7 +67,7 @@ but every value can be replaced or disabled:
 | defaultGroup | `com.eignex` | CLI build-info group fallback |
 | platformArtifact | `kbuild-platform` | Platform BOM artifact |
 | platformVersion | Current KBuild version | Platform BOM version |
-| nodeVersion | `25.0.0` | KMP JavaScript and Wasm Node.js |
+| nodeVersion | `26.12.1` | KMP JavaScript and Wasm Node.js |
 | jsTestTimeout | `120s` | KMP Mocha and Karma tests |
 | koverEnabled | `true` | Kover tasks |
 | abiValidationEnabled | `true` | KMP ABI validation |
@@ -94,7 +94,7 @@ eignexBuild {
 
 By default, KBuild adds the `com.eignex:kbuild-platform` BOM to `commonMain`/`commonTest` or
 JVM compile/test classpaths, adds `kotlin-test` to common tests, adds Maven Central, pins the JVM
-toolchain to 25, pins Node.js to 25.0.0, enables ABI validation, Kover, and lint, and uses a 120s
+toolchain to 25, pins Node.js to 26.12.1, enables ABI validation, Kover, and lint, and uses a 120s
 JS test timeout.
 
 ## JVM baselines and multi-release JARs
@@ -358,7 +358,9 @@ For your own projects, fork and publish your own version.
 
 ## Building KBuild
 
-Run `./gradlew build` with JDKs 17, 21, and 25 installed and discoverable by Gradle. The TestKit
-suite forwards those installation paths to its isolated builds. Run `./samples/smoke-test.sh`
+Run `./gradlew build`; Foojay toolchain resolution provisions JDKs 17, 21, and 25 when needed.
+The TestKit suite forwards those installation paths to its isolated builds. Gradle deprecations
+fail validation through `org.gradle.warning.mode=fail`. The WASI sample uses Wasmtime to avoid
+Node's experimental WASI adapter. Run `./samples/smoke-test.sh`
 with `JAVA_HOME` pointing to JDK 25 and the Android SDK configured as described above to verify
 the JVM, multiplatform, CLI, publication, and Android consumer samples.
