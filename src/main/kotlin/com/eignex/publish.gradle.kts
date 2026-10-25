@@ -14,6 +14,12 @@ version = findProperty("ciVersion") as String? ?: "SNAPSHOT"
 
 val eignexPublish = extensions.create<EignexPublishExtension>("eignexPublish")
 val mavenPublish = extensions.create<MavenPublishExtension>("mavenPublish")
+
+// Apply to every downstream JVM/KMP publication without changing its payload or metadata.
+tasks.named<Zip>("mavenCentralBundle") {
+    exclude("**/*.sha256", "**/*.sha512", "**/*.asc.*")
+}
+
 eignexPublish.licenseName.convention("Apache-2.0")
 eignexPublish.licenseUrl.convention("https://www.apache.org/licenses/LICENSE-2.0")
 eignexPublish.projectUrl.convention(eignexPublish.githubRepo.map { "https://github.com/$it" })
