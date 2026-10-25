@@ -77,7 +77,7 @@ jobs:
       # publish task compiles what it needs. A tag is verified here before anything is released.
       - name: Build and Test
         if: env.IS_SNAPSHOT == 'false'
-        run: ./gradlew build -PciVersion=${{ env.RELEASE_VERSION }}
+        run: ./gradlew build publishToMavenLocal -Dmaven.repo.local="$RUNNER_TEMP/kbuild-release-validation" -PciVersion=${{ env.RELEASE_VERSION }}
 
       - name: Upload test reports
         if: always() && env.IS_SNAPSHOT == 'false'

@@ -96,6 +96,28 @@ val javadocJar = tasks.register<Jar>("javadocJar") {
     from(layout.buildDirectory.dir("dokka/html"))
 }
 
+// Gradle's generated precompiled-script adapters link to script classes Dokka cannot resolve.
+// Document the authored API rather than those implementation adapters.
+dokka {
+    dokkaSourceSets.configureEach {
+        sourceRoots.setFrom(layout.projectDirectory.dir("src/main/kotlin"))
+    }
+}
+
+tasks.withType<org.jetbrains.dokka.gradle.tasks.DokkaGenerateTask>().configureEach {
+    doLast {
+        val log = workerLogFile.asFile.orNull ?: return@doLast
+        if (!log.exists()) return@doLast
+        val diagnostics = log.readLines().filter {
+            Regex("""\[(warn|error)]""", RegexOption.IGNORE_CASE).containsMatchIn(it)
+        }
+        check(diagnostics.isEmpty()) { "Dokka reported issues:\n${diagnostics.joinToString("\n")}" }
+    }
+}
+
+// Exercise publication-only artifacts in ordinary builds and release dry runs as well.
+tasks.named("assemble") { dependsOn(sourcesJar, javadocJar) }
+
 publishing {
     publications {
         withType<MavenPublication>().configureEach {
