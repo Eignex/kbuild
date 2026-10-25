@@ -56,7 +56,10 @@ but every value can be replaced or disabled:
 
 | Property | Default | Purpose |
 | --- | --- | --- |
-| jvmToolchain | `25` | Kotlin JVM compilation and Detekt |
+| jvmToolchain | `25` | JDK for compilation, tests, and Detekt |
+| jvmTarget | `jvmToolchain` | Default bytecode baseline and published JVM version |
+| multiReleaseJvmVersion | Unset | Opt-in newer JVM implementation in the same JAR |
+| packagedTestJdks | `[]` | JDKs for tests against the packaged JVM JAR |
 | usePlatformDependencies | `true` | Add the platform BOM |
 | useKotlinTestDependency | `true` | Add `kotlin-test` to test source sets |
 | useMavenCentral | `true` | Add Maven Central to repositories |
@@ -93,6 +96,64 @@ By default, KBuild adds the `com.eignex:kbuild-platform` BOM to `commonMain`/`co
 JVM compile/test classpaths, adds `kotlin-test` to common tests, adds Maven Central, pins the JVM
 toolchain to 25, pins Node.js to 25.0.0, enables ABI validation, Kover, and lint, and uses a 120s
 JS test timeout.
+
+## JVM baselines and multi-release JARs
+
+The build JDK and published runtime baseline can be configured independently:
+
+```kotlin
+eignexBuild {
+    jvmToolchain.set(25)
+    jvmTarget.set(17)
+    multiReleaseJvmVersion.set(25)
+    packagedTestJdks.set(listOf(17, 25))
+}
+```
+
+This works with `com.eignex.jvm`, `com.eignex.kmp`, and JVM targets in `com.eignex.cli`.
+Kotlin compilation targets use conventions, so explicit target or per-compilation overrides
+still win. Java uses `--release`, and published JVM attributes describe the baseline.
+Detekt and ordinary tests continue to use the build JDK. A lower Kotlin bytecode target alone
+does not restrict the JDK APIs referenced by Kotlin source; audit portable code's API usage
+(and its dependencies), especially for Android.
+
+Setting `multiReleaseJvmVersion` adds a `java25` compilation for each JVM target. Put only the
+newer implementation in `src/java25/kotlin` and `src/java25/java` for the JVM plugin, or
+`src/jvmJava25/kotlin` and `src/jvmJava25/java` for a KMP target named `jvm`. Substitute the
+configured version and target name as needed. The compilation can use the main output and its
+internal declarations without recompiling the shared sources. Its classes and resources go under
+`META-INF/versions/25/`, with `Multi-Release: true` in the manifest. Versioned `META-INF` content,
+including Kotlin module metadata, is excluded. Keep public APIs consistent across versions.
+
+There is still one artifact per JVM target; no extra target, backend publication, AAR, or native
+library is added. Sources from the newer compilation are included under `java25/` in the ordinary
+sources JAR. Dokka, ABI validation, lint, and ordinary coverage tasks retain their normal roles.
+
+`packagedTestJdks` adds `testJarOnJava17` / `testJarOnJava25` for the JVM plugin, or
+`jvmTestJarOnJava17` / `jvmTestJarOnJava25` for KMP. These tasks run the target's test classes using
+the same test framework (including its framework options) as the ordinary test task, replacing
+loose production outputs with the actual JAR, and are attached to `check`. Configure any custom
+system properties, JVM arguments (such as Vector API module flags), or test filtering on these tasks as well as your ordinary test task. Install the requested JDKs
+or configure toolchain provisioning in the consuming build.
+
+The `samples/jvm-multi-release` KMP library exercises Java 17 portable code and Java 25 FFM
+code. `samples/multi-release-consumer` resolves its staged Maven publication as an independent
+Java 17 consumer and executes on both JDKs. The smoke test also runs Android D8 and R8 for
+API 24 and asserts that desktop references are absent from the dex output. Build-tools 37
+provides D8/R8 with [Kotlin 2.4 metadata support](https://developer.android.com/build/kotlin-support).
+The check covers this sample's packaging; libraries still need an Android API audit and device
+tests for their own APIs.
+To run the sample validation:
+
+```shell
+cd samples
+../gradlew :jvm-multi-release:check :jvm-multi-release:publishJvmPublicationToLocalStagingRepository :jvm-multi-release:copyAndroidLibraries
+../gradlew -p multi-release-consumer runOnJava17 runOnJava25
+# Requires JAVA_HOME and ANDROID_HOME (or ANDROID_SDK_ROOT).
+# Defaults: build-tools 37.0.0 and platform android-36; override with
+# ANDROID_BUILD_TOOLS and ANDROID_PLATFORM.
+python3 jvm-multi-release/android-smoke.py
+```
 
 ## CLI applications
 
@@ -294,3 +355,10 @@ entry supports name, url, and optional distribution. Configured license entries 
 Eignex Apache default and support multiple licenses.
 
 For your own projects, fork and publish your own version.
+
+## Building KBuild
+
+Run `./gradlew build` with JDKs 17, 21, and 25 installed and discoverable by Gradle. The TestKit
+suite forwards those installation paths to its isolated builds. Run `./samples/smoke-test.sh`
+with `JAVA_HOME` pointing to JDK 25 and the Android SDK configured as described above to verify
+the JVM, multiplatform, CLI, publication, and Android consumer samples.

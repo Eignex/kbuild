@@ -1,4 +1,5 @@
 import com.eignex.kbuild.getOrCreateEignexBuildExtension
+import com.eignex.kbuild.configureKbuildJvm
 
 plugins {
     kotlin("jvm")
@@ -14,6 +15,13 @@ apply(plugin = "com.eignex.lint")
 kotlin {
 }
 
+// Register first so withJavadocJar exposes this Dokka artifact without adding Java Javadoc.
+tasks.register<Jar>("javadocJar") {
+    archiveClassifier.set("javadoc")
+    dependsOn(tasks.named("dokkaGenerate"))
+    from(layout.buildDirectory.dir("dokka/html"))
+}
+
 java {
     withSourcesJar()
     withJavadocJar()
@@ -25,12 +33,8 @@ tasks.withType<Test>().configureEach {
     useJUnitPlatform()
 }
 
-tasks.named<Jar>("javadocJar") {
-    dependsOn(tasks.named("dokkaGenerate"))
-    from(layout.buildDirectory.dir("dokka/html"))
-}
-
 afterEvaluate {
+    configureKbuildJvm(eignexBuild)
     if (eignexBuild.useMavenCentral.get()) repositories.mavenCentral()
     kotlin {
         jvmToolchain(eignexBuild.jvmToolchain.get())

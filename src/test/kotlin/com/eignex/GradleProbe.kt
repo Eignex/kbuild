@@ -33,7 +33,11 @@ internal class GradleProbe(private val projectDir: File) {
     private fun runner(args: Array<out String>): GradleRunner =
         GradleRunner.create()
             .withProjectDir(projectDir)
-            .withArguments(*args, "--stacktrace")
+            .withArguments(
+                *args,
+                "--stacktrace",
+                "-Porg.gradle.java.installations.paths=${System.getProperty("kbuild.test.javaInstallations")}",
+            )
             .withPluginClasspath()
 }
 

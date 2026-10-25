@@ -4,7 +4,7 @@ import com.eignex.internal.KBUILD_VERSION
 import org.gradle.api.Project
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
 
-/** JDK the plugins target. Shared so the Kotlin toolchain and detekt's jvmTarget cannot drift. */
+/** Default build JDK, independent of an explicitly configured bytecode baseline. */
 internal const val KBUILD_JVM_TOOLCHAIN = 25
 
 /**
@@ -15,6 +15,8 @@ internal fun Project.getOrCreateEignexBuildExtension(): EignexBuildExtension =
     extensions.findByType(EignexBuildExtension::class.java)
         ?: extensions.create("eignexBuild", EignexBuildExtension::class.java).also {
         it.jvmToolchain.convention(KBUILD_JVM_TOOLCHAIN)
+        it.jvmTarget.convention(it.jvmToolchain)
+        it.packagedTestJdks.convention(emptyList())
         it.usePlatformDependencies.convention(true)
         it.useKotlinTestDependency.convention(true)
         it.useMavenCentral.convention(true)

@@ -1,6 +1,7 @@
 import com.eignex.kbuild.JsTestFrameworkTimeout
 import com.eignex.kbuild.applyKbuildCommonDependencies
 import com.eignex.kbuild.getOrCreateEignexBuildExtension
+import com.eignex.kbuild.configureKbuildJvm
 import org.jetbrains.kotlin.gradle.dsl.abi.ExperimentalAbiValidation
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsEnvSpec
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsPlugin
@@ -72,6 +73,7 @@ val writeEignexKarmaConfig = tasks.register("writeEignexKarmaConfig") {
 tasks.withType<KotlinJsTest>().configureEach { dependsOn(writeEignexKarmaConfig) }
 
 afterEvaluate {
+    configureKbuildJvm(eignexBuild)
     if (eignexBuild.useMavenCentral.get()) repositories.mavenCentral()
     if (eignexBuild.abiValidationEnabled.get()) {
         @OptIn(ExperimentalAbiValidation::class)

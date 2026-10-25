@@ -1,6 +1,7 @@
 import com.eignex.kbuild.EignexCliExtension
 import com.eignex.kbuild.applyKbuildCommonDependencies
 import com.eignex.kbuild.getOrCreateEignexBuildExtension
+import com.eignex.kbuild.configureKbuildJvm
 import java.security.MessageDigest
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.plugin.mpp.Executable
@@ -108,6 +109,7 @@ kotlin.targets.withType<KotlinJvmTarget>().all {
 
 // Everything below reads consumer configuration that exists only after their script has run.
 afterEvaluate {
+    configureKbuildJvm(eignexBuild)
     if (eignexBuild.useMavenCentral.get()) repositories.mavenCentral()
     kotlin {
         jvmToolchain(eignexBuild.jvmToolchain.get())

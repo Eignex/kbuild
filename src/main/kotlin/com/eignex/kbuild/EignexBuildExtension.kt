@@ -1,11 +1,21 @@
 package com.eignex.kbuild
 
+import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Property
 
 /** Shared defaults and opt-outs used by the JVM, KMP, and CLI convention plugins. */
 abstract class EignexBuildExtension {
     /** JVM toolchain used by Kotlin and lint. Defaults to 25. */
     abstract val jvmToolchain: Property<Int>
+
+    /** Published JVM bytecode baseline. Defaults to [jvmToolchain]. */
+    abstract val jvmTarget: Property<Int>
+
+    /** Optional newer JVM release packaged under `META-INF/versions/<release>`. */
+    abstract val multiReleaseJvmVersion: Property<Int>
+
+    /** JDKs on which to run tests against the packaged JVM JAR. Defaults to an empty list. */
+    abstract val packagedTestJdks: ListProperty<Int>
 
     /** Whether to add the platform BOM and kotlin-test dependencies. */
     abstract val usePlatformDependencies: Property<Boolean>

@@ -25,7 +25,10 @@ jobs:
         uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: 25
+          java-version: |
+            17
+            21
+            25
 
       # Persists the Gradle home incl. the build and configuration caches across runs.
       - name: Set up Gradle
@@ -46,6 +49,9 @@ jobs:
 
       - name: Build
         run: ./gradlew build
+
+      - name: Set up Android consumer tools
+        run: sdkmanager "build-tools;37.0.0" "platforms;android-36"
 
       - name: Sample smoke test
         run: ./samples/smoke-test.sh

@@ -60,6 +60,17 @@ run_cli() {
 run_positive jvm-positive
 # Exercise the com.eignex.jvm publish path (the mavenJava publication) against local staging.
 run_task jvm-positive publishMavenJavaPublicationToLocalStagingRepository
+run_positive jvm-multi-release
+run_task jvm-multi-release publishJvmPublicationToLocalStagingRepository
+run_task jvm-multi-release copyAndroidLibraries
+if ! "$GRADLEW" -p multi-release-consumer runOnJava17 runOnJava25 --no-daemon; then
+    echo "FAIL: published multi-release consumers"
+    fail=1
+fi
+if ! python3 jvm-multi-release/android-smoke.py; then
+    echo "FAIL: Android D8/R8 consumers"
+    fail=1
+fi
 run_positive kmp-positive
 run_task kmp-positive wasmWasiNodeTest
 run_positive cli-positive
