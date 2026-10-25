@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
-"""Verify KBuild's Central bundles without uploading or changing their contents."""
+"""Verify KBuild's combined Central bundle and release plan without uploading."""
+import argparse
 import hashlib
+from pathlib import Path
+import re
 import sys
 import zipfile
 
@@ -60,10 +63,32 @@ def check_bundles(paths):
     print(f"Verified {len(payloads)} artifacts, {signatures} signatures, {len(files)} files across 7 publications")
 
 
+def check_publish_plan(path):
+    tasks = re.findall(r"^(:\S+) SKIPPED$", Path(path).read_text(), re.MULTILINE)
+    uploads = [task for task in tasks if task.endswith(":uploadMavenCentralBundle")]
+    if uploads != [":uploadMavenCentralBundle"]:
+        raise ValueError(f"expected one root Central upload, found: {uploads}")
+    bundle = ":mavenCentralBundle"
+    clean = ":cleanMavenCentralStagingRepository"
+    staged = ":kbuild-platform:publishJavaPlatformPublicationToMavenCentralStagingRepository"
+    if not all(task in tasks for task in (bundle, clean, staged)):
+        raise ValueError("release plan is missing the combined bundle, shared cleanup, or platform staging")
+    publications = [task for task in tasks if re.fullmatch(r":(?:kbuild-platform:)?publish\w+PublicationToMavenCentralStagingRepository", task)]
+    if len(publications) != 7 or not all(tasks.index(clean) < tasks.index(task) < tasks.index(bundle) for task in publications):
+        raise ValueError("all seven publications must stage after cleanup and before bundling")
+    if tasks.index(bundle) > tasks.index(uploads[0]):
+        raise ValueError("Central upload must follow the combined bundle")
+    print("Verified one Central upload after staging all 7 publications")
+
+
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("bundle", help="the combined plugin/platform bundle ZIP")
+    parser.add_argument("--publish-plan", help="output of publishToMavenCentral --dry-run --console=plain")
+    args = parser.parse_args()
     try:
-        if len(sys.argv) != 3:
-            raise ValueError("expected the plugin and platform bundle ZIP paths")
-        check_bundles(sys.argv[1:])
+        check_bundles([args.bundle])
+        if args.publish_plan:
+            check_publish_plan(args.publish_plan)
     except (ValueError, KeyError, zipfile.BadZipFile) as error:
         sys.exit(str(error))

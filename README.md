@@ -386,9 +386,17 @@ For your own projects, fork and publish your own version.
 
 ## Building KBuild
 
-KBuild's own Maven Central bundles retain the plugin, platform BOM, plugin markers, sources,
+KBuild publishes its plugin, platform BOM, and five plugin markers together in one Maven Central
+deployment. The seven Maven coordinates and their shared version are unchanged; a KBuild release
+uses one publish operation instead of two. `./gradlew mavenCentralBundle` stages both projects
+locally and assembles `build/maven-central-publishing/bundle.zip` without uploading. CI checks
+that the bundle contains every publication and the release task graph has exactly one upload.
+`./gradlew publishToMavenCentral` publishes that combined bundle. Snapshot repository publishing
+continues to upload both projects directly as before.
+
+The Maven Central bundle retains the plugin, platform BOM, plugin markers, sources,
 documentation, Gradle metadata, signatures, and required MD5/SHA-1 checksums. Optional SHA-256/
-SHA-512 sidecars and checksums of signatures are excluded from both projects' bundles. For the
+SHA-512 sidecars and checksums of signatures are excluded from the bundle. For the
 current seven publications this reduces a signed release from 72 files to 48 without changing
 any artifact's contents.
 
