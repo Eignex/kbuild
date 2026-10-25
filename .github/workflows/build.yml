@@ -51,10 +51,14 @@ jobs:
         run: ./gradlew build
 
       - name: Set up Android consumer tools
-        uses: android-actions/setup-android@v4
-        with:
-          packages: 'build-tools;37.0.0 platforms;android-36'
-          log-accepted-android-sdk-licenses: false
+        run: |
+          android_cli="$RUNNER_TEMP/android"
+          android_sdk="$RUNNER_TEMP/android-sdk"
+          curl -fsSL https://dl.google.com/android/cli/latest/linux_x86_64/android -o "$android_cli"
+          chmod +x "$android_cli"
+          "$android_cli" --no-metrics --sdk="$android_sdk" sdk install build-tools/37.0.0 platforms/android-36
+          echo "ANDROID_HOME=$android_sdk" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$android_sdk" >> "$GITHUB_ENV"
 
       - name: Sample smoke test
         run: ./samples/smoke-test.sh
