@@ -16,6 +16,8 @@ internal fun Project.getOrCreateEignexBuildExtension(): EignexBuildExtension =
         ?: extensions.create("eignexBuild", EignexBuildExtension::class.java).also {
         it.jvmToolchain.convention(KBUILD_JVM_TOOLCHAIN)
         it.jvmTarget.convention(it.jvmToolchain)
+        it.jvmModuleRelease.convention(it.jvmTarget.map { version -> version.coerceAtLeast(9) })
+        it.jvmModuleVersioned.convention(it.jvmTarget.map { version -> version < 9 })
         it.packagedTestJdks.convention(emptyList())
         it.usePlatformDependencies.convention(true)
         it.useKotlinTestDependency.convention(true)

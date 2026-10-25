@@ -83,7 +83,7 @@ run_task jvm-positive publishMavenJavaPublicationToLocalStagingRepository
 run_positive jvm-multi-release
 run_task jvm-multi-release publishJvmPublicationToLocalStagingRepository
 run_task jvm-multi-release copyAndroidLibraries
-if ! run_checked "$GRADLEW" -p multi-release-consumer runOnJava17 runOnJava25 --no-daemon; then
+if ! run_checked "$GRADLEW" -p multi-release-consumer runOnJava17 runOnJava25 runModuleOnJava17 runModuleOnJava25 --no-daemon; then
     echo "FAIL: published multi-release consumers"
     fail=1
 fi

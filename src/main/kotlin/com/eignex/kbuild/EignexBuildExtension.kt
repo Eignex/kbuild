@@ -2,6 +2,7 @@ package com.eignex.kbuild
 
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Property
+import org.gradle.api.file.RegularFileProperty
 
 /** Shared defaults and opt-outs used by the JVM, KMP, and CLI convention plugins. */
 abstract class EignexBuildExtension {
@@ -13,6 +14,15 @@ abstract class EignexBuildExtension {
 
     /** Optional newer JVM release packaged under `META-INF/versions/<release>`. */
     abstract val multiReleaseJvmVersion: Property<Int>
+
+    /** Optional library-owned `module-info.java`, compiled separately against the JVM outputs. */
+    abstract val jvmModuleDescriptor: RegularFileProperty
+
+    /** Java release of the module descriptor. Defaults to the baseline, with a minimum of 9. */
+    abstract val jvmModuleRelease: Property<Int>
+
+    /** Places the descriptor under its release directory. Defaults to true for baselines below 9. */
+    abstract val jvmModuleVersioned: Property<Boolean>
 
     /** JDKs on which to run tests against the packaged JVM JAR. Defaults to an empty list. */
     abstract val packagedTestJdks: ListProperty<Int>
