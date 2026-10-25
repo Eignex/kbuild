@@ -118,6 +118,13 @@ tasks.withType<org.jetbrains.dokka.gradle.tasks.DokkaGenerateTask>().configureEa
 // Exercise publication-only artifacts in ordinary builds and release dry runs as well.
 tasks.named("assemble") { dependsOn(sourcesJar, javadocJar) }
 
+// Central requires MD5/SHA-1 and signatures; the extra digest sidecars multiply file usage.
+allprojects {
+    tasks.withType<Zip>().matching { it.name == "mavenCentralBundle" }.configureEach {
+        exclude("**/*.sha256", "**/*.sha512", "**/*.asc.*")
+    }
+}
+
 publishing {
     publications {
         withType<MavenPublication>().configureEach {

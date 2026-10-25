@@ -358,6 +358,12 @@ For your own projects, fork and publish your own version.
 
 ## Building KBuild
 
+KBuild's own Maven Central bundles retain the plugin, platform BOM, plugin markers, sources,
+documentation, Gradle metadata, signatures, and required MD5/SHA-1 checksums. Optional SHA-256/
+SHA-512 sidecars and checksums of signatures are excluded from both projects' bundles. For the
+current seven publications this reduces a signed release from 72 files to 48 without changing
+any artifact's contents.
+
 Run `./gradlew build`; Foojay toolchain resolution provisions JDKs 17, 21, and 25 when needed.
 The build also assembles publication sources and API documentation, failing on Dokka warnings
 or errors. The TestKit suite forwards the JDK installation paths to its isolated builds.
