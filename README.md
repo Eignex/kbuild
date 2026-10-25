@@ -359,8 +359,9 @@ For your own projects, fork and publish your own version.
 ## Building KBuild
 
 Run `./gradlew build`; Foojay toolchain resolution provisions JDKs 17, 21, and 25 when needed.
-The TestKit suite forwards those installation paths to its isolated builds. Gradle deprecations
-fail validation through `org.gradle.warning.mode=fail`. The WASI sample uses Wasmtime to avoid
+The build also assembles publication sources and API documentation, failing on Dokka warnings
+or errors. The TestKit suite forwards the JDK installation paths to its isolated builds.
+Gradle deprecations fail validation through `org.gradle.warning.mode=fail`. The WASI sample uses Wasmtime to avoid
 Node's experimental WASI adapter. Run `./samples/smoke-test.sh`
 with `JAVA_HOME` pointing to JDK 25 and the Android SDK configured as described above to verify
 the JVM, multiplatform, CLI, publication, and Android consumer samples.
