@@ -38,9 +38,14 @@ internal fun Project.configureKbuildJvm(build: EignexBuildExtension) {
     tasks.withType(JavaCompile::class.java).configureEach {
         options.release.convention(baseline)
     }
+    if (build.jvmModuleDescriptor.isPresent) {
+        extensions.findByType(SourceSetContainer::class.java)?.all { java.exclude("module-info.java") }
+        tasks.withType(KotlinJvmCompile::class.java).configureEach { exclude("**/module-info.java") }
+    }
     extensions.findByType(KotlinJvmProjectExtension::class.java)?.apply {
         compilerOptions.jvmTarget.convention(bytecode)
         val main = target.compilations.getByName("main")
+        val moduleClasses = files(main.output.classesDirs)
         if (release != null) {
             val name = "java$release"
             val sources = project.extensions.getByType(SourceSetContainer::class.java).maybeCreate(name)
@@ -52,8 +57,10 @@ internal fun Project.configureKbuildJvm(build: EignexBuildExtension) {
                 friendPaths.setFrom(main.output.classesDirs)
             }
             versioned.compileJavaTaskProvider?.configure { options.release.convention(release) }
+            moduleClasses.from(versioned.output.classesDirs)
             packageVersionedClasses("jar", "sourcesJar", release, versioned.output.allOutputs, sources.allSource)
         }
+        configureModuleDescriptor("", "jar", "sourcesJar", moduleClasses, main.compileDependencyFiles, build)
         val test = target.compilations.getByName("test")
         registerPackagedTests(
             "", "jar", main.output.allOutputs, test.output.classesDirs, test.runtimeDependencyFiles, build,
@@ -63,6 +70,7 @@ internal fun Project.configureKbuildJvm(build: EignexBuildExtension) {
         targets.withType(KotlinJvmTarget::class.java).all {
             compilerOptions.jvmTarget.convention(bytecode)
             val main = compilations.getByName("main")
+            val moduleClasses = files(main.output.classesDirs)
             val publishedJvmVersion = main.compileTaskProvider.map {
                 it.compilerOptions.jvmTarget.get().target.removePrefix("1.").toInt()
             }
@@ -82,6 +90,7 @@ internal fun Project.configureKbuildJvm(build: EignexBuildExtension) {
                     friendPaths.setFrom(main.output.classesDirs)
                 }
                 versioned.compileJavaTaskProvider?.configure { options.release.convention(release) }
+                moduleClasses.from(versioned.output.classesDirs)
                 val sources = files(
                     versioned.defaultSourceSet.kotlin.matching { include("**/*.kt", "**/*.kts") },
                     fileTree("src/${versioned.defaultSourceSet.name}/java") { include("**/*.java") },
@@ -90,10 +99,51 @@ internal fun Project.configureKbuildJvm(build: EignexBuildExtension) {
                     artifactsTaskName, "${name}SourcesJar", release, versioned.output.allOutputs, sources,
                 )
             }
+            configureModuleDescriptor(
+                name, artifactsTaskName, "${name}SourcesJar", moduleClasses, main.compileDependencyFiles, build,
+            )
             val test = compilations.getByName("test")
             registerPackagedTests(
                 name, artifactsTaskName, main.output.allOutputs, test.output.classesDirs, test.runtimeDependencyFiles, build,
             )
+        }
+    }
+}
+
+private fun Project.configureModuleDescriptor(
+    prefix: String,
+    jarName: String,
+    sourcesJarName: String,
+    classes: FileCollection,
+    dependencies: FileCollection,
+    build: EignexBuildExtension,
+) {
+    if (!build.jvmModuleDescriptor.isPresent) return
+    val release = build.jvmModuleRelease.get()
+    val versioned = build.jvmModuleVersioned.get()
+    require(release in 9..build.jvmToolchain.get()) { "jvmModuleRelease must be between 9 and jvmToolchain" }
+    require(versioned || release <= build.jvmTarget.get()) {
+        "A root module descriptor must not exceed jvmTarget; set jvmModuleVersioned for a newer descriptor"
+    }
+    val toolchains = extensions.getByType(JavaToolchainService::class.java)
+    val capitalized = prefix.replaceFirstChar { it.uppercase() }
+    val descriptor = tasks.register("compile${capitalized}ModuleDescriptor", CompileJvmModuleDescriptor::class.java) {
+        this.descriptor.set(build.jvmModuleDescriptor)
+        this.release.set(release)
+        this.classes.from(classes)
+        modulePath.from(dependencies)
+        javaCompiler.set(toolchains.compilerFor { languageVersion.set(JavaLanguageVersion.of(build.jvmToolchain.get())) })
+        destinationDirectory.set(layout.buildDirectory.dir("module-descriptor/${prefix.ifEmpty { "jvm" }}"))
+    }
+    tasks.named(jarName, Jar::class.java).configure {
+        if (versioned) manifest.attributes["Multi-Release"] = "true"
+        from(descriptor.flatMap { it.destinationDirectory }) {
+            if (versioned) into("META-INF/versions/$release")
+        }
+    }
+    tasks.named(sourcesJarName, Jar::class.java).configure {
+        from(build.jvmModuleDescriptor) {
+            if (versioned) into("java$release")
         }
     }
 }

@@ -14,13 +14,25 @@ java {
     toolchain.languageVersion.set(JavaLanguageVersion.of(17))
 }
 
-application { mainClass.set("consumer.Main") }
+application {
+    mainClass.set("consumer.Main")
+    mainModule.set("consumer")
+}
 
 for (jdk in listOf(17, 25)) {
     tasks.register<JavaExec>("runOnJava$jdk") {
         classpath = sourceSets.main.get().runtimeClasspath
         mainClass.set(application.mainClass)
+        modularity.inferModulePath.set(false)
         javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(jdk)) })
         args(if (jdk >= 25) "ffm" else "portable")
+    }
+    tasks.register<JavaExec>("runModuleOnJava$jdk") {
+        classpath = sourceSets.main.get().runtimeClasspath
+        mainClass.set(application.mainClass)
+        mainModule.set(application.mainModule)
+        modularity.inferModulePath.set(true)
+        javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(jdk)) })
+        args(if (jdk >= 25) "ffm" else "portable", "module")
     }
 }

@@ -9,6 +9,7 @@ eignexBuild {
     jvmToolchain.set(25)
     jvmTarget.set(17)
     multiReleaseJvmVersion.set(25)
+    jvmModuleDescriptor.set(layout.projectDirectory.file("src/jvmModule/module-info.java"))
     packagedTestJdks.set(listOf(17, 25))
 }
 

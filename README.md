@@ -129,6 +129,27 @@ There is still one artifact per JVM target; no extra target, backend publication
 library is added. Sources from the newer compilation are included under `java25/` in the ordinary
 sources JAR. Dokka, ABI validation, lint, and ordinary coverage tasks retain their normal roles.
 
+For a modular JAR, provide the library's own descriptor:
+
+```kotlin
+eignexBuild {
+    jvmModuleDescriptor.set(layout.projectDirectory.file("src/jvmModule/module-info.java"))
+    // jvmModuleRelease defaults to maxOf(jvmTarget, 9).
+    // jvmModuleVersioned defaults to true when jvmTarget is below 9.
+}
+```
+
+The descriptor chooses its module name, requirements, exports, and opened packages. KBuild
+compiles it against the target's Kotlin/Java outputs and module dependencies, then records all
+packages, including those introduced only by newer implementations. Ordinary Gradle JAR tasks
+package the completed descriptor reproducibly. Descriptor sources are included in the sources
+JAR; no extra Maven publication is created. Set `jvmModuleRelease` and `jvmModuleVersioned` to
+place the descriptor in `META-INF/versions/<release>/` instead of at the root. A root descriptor
+cannot target a newer release than the baseline. Keep versioned-only implementation packages
+unexported: Kotlin `internal` declarations are public in JVM bytecode. The JDK JAR validator may
+advise that concealed public classes are still visible on the classpath; this is expected for
+that layout and does not indicate a validation failure.
+
 `packagedTestJdks` adds `testJarOnJava17` / `testJarOnJava25` for the JVM plugin, or
 `jvmTestJarOnJava17` / `jvmTestJarOnJava25` for KMP. These tasks run the target's test classes using
 the same test framework (including its framework options) as the ordinary test task, replacing
@@ -148,7 +169,7 @@ To run the sample validation:
 ```shell
 cd samples
 ../gradlew :jvm-multi-release:check :jvm-multi-release:publishJvmPublicationToLocalStagingRepository :jvm-multi-release:copyAndroidLibraries
-../gradlew -p multi-release-consumer runOnJava17 runOnJava25
+../gradlew -p multi-release-consumer runOnJava17 runOnJava25 runModuleOnJava17 runModuleOnJava25
 # Requires JAVA_HOME and ANDROID_HOME (or ANDROID_SDK_ROOT).
 # Defaults: build-tools 37.0.0 and platform android-36; override with
 # ANDROID_BUILD_TOOLS and ANDROID_PLATFORM.

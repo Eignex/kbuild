@@ -15,6 +15,7 @@ repositories {
 }
 
 dependencies {
+    implementation(libs.asm)
     implementation(libs.kotlin.gradle.plugin)
     implementation(libs.dokka.gradle.plugin)
     implementation(libs.kover.gradle.plugin)
