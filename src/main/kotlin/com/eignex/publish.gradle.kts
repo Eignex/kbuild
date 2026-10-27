@@ -1,5 +1,6 @@
 import com.eignex.kbuild.EignexPublishExtension
 import com.eignex.kbuild.MavenPublishExtension
+import com.eignex.kbuild.GitHubPublishExtension
 import org.gradle.api.provider.Property
 import org.gradle.api.provider.Provider
 
@@ -14,6 +15,10 @@ version = findProperty("ciVersion") as String? ?: "SNAPSHOT"
 
 val eignexPublish = extensions.create<EignexPublishExtension>("eignexPublish")
 val mavenPublish = extensions.create<MavenPublishExtension>("mavenPublish")
+
+pluginManager.withPlugin("com.eignex.publish.github") {
+    extensions.getByType<GitHubPublishExtension>().repository.convention(eignexPublish.githubRepo)
+}
 
 // Apply to every downstream JVM/KMP publication without changing its payload or metadata.
 tasks.named<Zip>("mavenCentralBundle") {

@@ -16,7 +16,7 @@
 
 ## Plugins
 
-KBuild provides five convention plugins:
+KBuild provides six convention plugins:
 
 - `com.eignex.jvm`: Kotlin/JVM libraries with Dokka, sources and Javadoc jars, Kover, JUnit
   Platform, publishing, and lint.
@@ -26,6 +26,8 @@ KBuild provides five convention plugins:
   configures JVM and Native executables, and provides release packaging. It does not publish.
 - `com.eignex.publish`: Maven Central publishing, POM metadata, local staging, snapshot
   publishing, and conditional in-memory GPG signing.
+- `com.eignex.publish.github`: reusable GitHub Release assets, metadata, checksums, and explicit
+  uploads through GitHub CLI. It can package JVM libraries, platforms, and Gradle plugins.
 - `com.eignex.lint`: Detekt with the built-in Eignex rules, KDoc checks, and Kotlin/Native-safe
   test-name checks.
 
@@ -33,7 +35,7 @@ KBuild provides five convention plugins:
 
 Future KBuild versions are distributed as public [GitHub Release assets](https://github.com/Eignex/kbuild/releases).
 Downloads require no GitHub login, token, or GitHub Packages configuration. Use a pinned version
-whose release assets have been uploaded and verified; the examples below use `1.3.6` as the
+whose release assets have been uploaded and verified; the examples below use `1.3.7` as the
 migration example, not as a claim that this version is already available. Existing Maven Central
 versions remain usable with their existing repository configuration.
 
@@ -41,7 +43,7 @@ In `settings.gradle.kts`, configure plugin resolution before applying KBuild:
 
 ```kotlin
 pluginManagement {
-    val kbuildVersion = "1.3.6"
+    val kbuildVersion = "1.3.7"
     repositories {
         ivy {
             url = uri("https://github.com/Eignex/kbuild/releases/download")
@@ -57,7 +59,7 @@ pluginManagement {
     resolutionStrategy.eachPlugin {
         if (requested.id.id in setOf(
             "com.eignex.jvm", "com.eignex.kmp", "com.eignex.cli",
-            "com.eignex.publish", "com.eignex.lint",
+            "com.eignex.publish", "com.eignex.lint", "com.eignex.publish.github",
         )) {
             useModule("com.eignex:kbuild:${requested.version ?: kbuildVersion}")
         }
@@ -68,6 +70,7 @@ pluginManagement {
         id("com.eignex.cli") version kbuildVersion
         id("com.eignex.publish") version kbuildVersion
         id("com.eignex.lint") version kbuildVersion
+        id("com.eignex.publish.github") version kbuildVersion
     }
 }
 ```
@@ -103,7 +106,7 @@ allprojects {
 
 Both repositories use Gradle Module Metadata to preserve variants, transitive plugin dependencies,
 and platform constraints. Do not replace `gradleMetadata()` with artifact-only resolution.
-Content filters keep unrelated coordinates off GitHub. Only the existing five plugin IDs map
+Content filters keep unrelated coordinates off GitHub. Only the existing six plugin IDs map
 to `com.eignex:kbuild`; separate plugin marker assets are unnecessary.
 
 The JVM and KMP conventions add the matching `com.eignex:kbuild-platform` version automatically.
@@ -111,7 +114,7 @@ Without the conventions, use the same dependency repository and import it explic
 
 ```kotlin
 dependencies {
-    implementation(platform("com.eignex:kbuild-platform:1.3.6"))
+    implementation(platform("com.eignex:kbuild-platform:1.3.7"))
 }
 ```
 
@@ -434,6 +437,102 @@ The `eignexPublish` defaults are:
 Set `publish` to `false` for modules that use the conventions but should not create a Maven
 publication or validate publication metadata.
 
+### Publishing a JVM library to GitHub Releases
+
+Apply the GitHub helper beside the JVM conventions. Add `com.eignex.publish.github` to the
+plugin resolution configuration above, using the same pinned KBuild version:
+
+```kotlin
+plugins {
+    id("com.eignex.jvm")
+    id("com.eignex.publish.github")
+}
+
+group = "org.example"
+eignexPublish {
+    description.set("My Kotlin library")
+    githubRepo.set("Owner/library")
+    // artifactId defaults to the project name.
+}
+```
+
+`githubPublish.repository` inherits `eignexPublish.githubRepo`. `githubReleaseAssets` collects the
+existing Maven publications into `build/github-release-assets`, including the JAR, sources,
+documentation, POM, Gradle Module Metadata, and `SHA256SUMS`. This task requires no credentials
+and invokes no Maven repository upload. The existing Central publishing tasks remain available.
+
+```shell
+# For a subproject named core; omit :core for a single-project build.
+./gradlew :core:githubReleaseAssets -PciVersion=1.2.3
+# Create and push v1.2.3 first, then explicitly publish the staged assets:
+./gradlew :core:publishToGitHubRelease -PciVersion=1.2.3
+```
+
+The upload task uses `gh release create --verify-tag` with generated release notes and a
+prerelease flag for versions containing `-`. Authenticate `gh` normally, or pass `GH_TOKEN`
+in CI with `contents: write`. Snapshots are rejected. Existing releases/assets are not replaced.
+Uploading is never attached to `build`, `publish`, or the staging task; use the exact project task
+path to publish one module rather than selecting upload tasks across a multi-project build.
+
+For a library already configuring its own Maven publications, apply only
+`com.eignex.publish.github` and set `githubPublish.repository`; it adds no Central plugin,
+metadata defaults, signing, or publishing destinations. The standard `maven-publish` plugin is
+used to generate the POM and Gradle metadata for the existing software component.
+
+The helper's configurable properties are:
+
+| Property | Default |
+| --- | --- |
+| repository | `eignexPublish.githubRepo` when those conventions are applied; otherwise required for upload |
+| releaseVersion | Project version |
+| releaseTag | `v<releaseVersion>` |
+| publicationNames | All Maven publications except plugin markers |
+| includeProjects | `[]`; other projects applying this helper whose assets belong to this release |
+| assetsDirectory | `build/github-release-assets` |
+| prerelease | Whether the release version contains `-` |
+| generateReleaseNotes | `true` |
+| githubCli | `gh` |
+
+Select publications or aggregate several modules when needed:
+
+```kotlin
+githubPublish {
+    repository.set("Owner/library")
+    publicationNames.set(listOf("mavenJava"))
+    includeProjects.set(listOf(":platform"))
+}
+```
+
+Included publications must share the release version and have distinct artifact filenames.
+Each project retains its own staging task; the aggregate regenerates one checksum manifest.
+KMP publication redirects are rewritten to the flat asset filenames, preserving variants and
+dependencies. Missing target publications and filename collisions fail the staging task.
+
+Consumers add an Ivy repository for the library's own GitHub releases:
+
+```kotlin
+repositories {
+    ivy {
+        url = uri("https://github.com/Owner/library/releases/download")
+        patternLayout { artifact("v[revision]/[artifact]-[revision](-[classifier]).[ext]") }
+        metadataSources { gradleMetadata() }
+        content { includeModule("org.example", "core") }
+    }
+    mavenCentral()
+}
+dependencies { implementation("org.example:core:1.2.3") }
+```
+
+If the library retains the default KBuild platform dependency, consumers also need its repository
+as described above. The `v[revision]` pattern assumes the default `releaseTag`; adjust it when
+using another tag convention.
+
+KBuild uses this same helper for its own release. `build-logic` is an independent included build
+that compiles the helper before the main KBuild plugin is built. The main plugin packages that
+same source, so publishing KBuild needs neither an older installed KBuild version nor a
+circular dependency on its own output. Root `releaseAssets` remains an alias for this helper's
+aggregate staging task, and release CI calls `:publishToGitHubRelease` explicitly.
+
 ### Generic Maven publishing
 
 All JVM and KMP publications created by `com.eignex.publish` use the same Maven Central bundle
@@ -482,20 +581,20 @@ For your own projects, fork and publish your own version.
 KBuild itself is released through GitHub, while `com.eignex.publish` continues to publish downstream
 libraries to Maven Central, including signing and the existing bundle file policy.
 
-`./gradlew releaseAssets -PciVersion=1.3.6` stages these files in `build/release-assets`:
+`./gradlew releaseAssets -PciVersion=1.3.7` stages these files in `build/release-assets`:
 
 ```text
-kbuild-1.3.6.jar
-kbuild-1.3.6-sources.jar
-kbuild-1.3.6-javadoc.jar
-kbuild-1.3.6.module
-kbuild-1.3.6.pom
-kbuild-platform-1.3.6.module
-kbuild-platform-1.3.6.pom
+kbuild-1.3.7.jar
+kbuild-1.3.7-sources.jar
+kbuild-1.3.7-javadoc.jar
+kbuild-1.3.7.module
+kbuild-1.3.7.pom
+kbuild-platform-1.3.7.module
+kbuild-platform-1.3.7.pom
 SHA256SUMS
 ```
 
-A `v1.3.6` tag uploads these assets to the matching public GitHub Release. Relative URLs in the
+A `v1.3.7` tag uploads these assets to the matching public GitHub Release. Relative URLs in the
 generated `.module` files match the asset names without rewriting metadata. Release CI builds and
 tests, validates every asset and checksum, then proves anonymous resolution before uploading.
 It repeats the consumer checks against the actual public download URLs afterward. Manual runs
@@ -509,16 +608,16 @@ The release checks use Bash 4.2 or newer, `jq`, GNU coreutils, `tar`, `unzip`, a
 (CI installs the JDKs and Gradle with `setup-java` and `setup-gradle`):
 
 ```shell
-./gradlew releaseAssets -PciVersion=1.3.6
-bash .github/scripts/check-publication-files.sh build/release-assets --version 1.3.6
-bash .github/scripts/check-release-resolution.sh --version 1.3.6 --gradle "$(command -v gradle)"
+./gradlew releaseAssets -PciVersion=1.3.7
+bash .github/scripts/check-publication-files.sh build/release-assets --version 1.3.7
+bash .github/scripts/check-release-resolution.sh --version 1.3.7 --gradle "$(command -v gradle)"
 # After publishing, also check the real public URLs:
-bash .github/scripts/check-release-resolution.sh --version 1.3.6 --gradle "$(command -v gradle)" \
+bash .github/scripts/check-release-resolution.sh --version 1.3.7 --gradle "$(command -v gradle)" \
   --repository-url https://github.com/Eignex/kbuild/releases/download
 ```
 
 The resolution check serves the exact release layout over anonymous HTTP, uses two separate empty
-Gradle user homes and an isolated home directory, and forwards no credentials. It resolves all five
+Gradle user homes and an isolated home directory, and forwards no credentials. It resolves all six
 plugin IDs and their transitive plugins, checks imported BOMs and direct platform constraints,
 publishes JVM and KMP libraries to local Maven staging, builds a downstream Central bundle, and
 runs an independent Java consumer of the published libraries and their transitive platform.

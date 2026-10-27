@@ -1,6 +1,7 @@
 plugins {
     `java-platform`
     `maven-publish`
+    id("com.eignex.publish.github")
 }
 
 group = "com.eignex"
@@ -50,16 +51,5 @@ publishing {
                 }
             }
         }
-    }
-}
-
-tasks.register<Sync>("releaseAssets") {
-    val releaseVersion = project.version.toString()
-    into(layout.buildDirectory.dir("release-assets"))
-    from(tasks.named("generateMetadataFileForJavaPlatformPublication")) {
-        rename { "kbuild-platform-$releaseVersion.module" }
-    }
-    from(tasks.named("generatePomFileForJavaPlatformPublication")) {
-        rename { "kbuild-platform-$releaseVersion.pom" }
     }
 }

@@ -5,7 +5,14 @@ dependencyResolutionManagement {
             url = uri(providers.gradleProperty("downstreamRepository").get())
             // Avoid parsing a Maven POM's BOM imports before following its metadata marker.
             metadataSources { gradleMetadata(); mavenPom() }
-            content { includeGroup("org.example") }
+            content { includeGroup("org.example"); excludeModule("org.example", "library") }
+        }
+        ivy {
+            url = uri(providers.gradleProperty("libraryReleaseRepository").get())
+            isAllowInsecureProtocol = url.scheme == "http"
+            patternLayout { artifact("v[revision]/[artifact]-[revision](-[classifier]).[ext]") }
+            metadataSources { gradleMetadata() }
+            content { includeModule("org.example", "library") }
         }
         ivy {
             url = uri(providers.gradleProperty("releaseRepository").get())
