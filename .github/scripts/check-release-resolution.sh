@@ -94,10 +94,22 @@ for project in library multiplatform; do
     jq -e --arg version "$version" '
         all(.variants[] | select(.attributes["org.gradle.category"] == "library" and
             (.attributes["org.gradle.usage"] == "java-api" or .attributes["org.gradle.usage"] == "java-runtime"));
-            .attributes["org.gradle.jvm.version"] == 17) and
-        any(.variants[].dependencies[]?; .group == "com.eignex" and .module == "kbuild-platform" and .version.requires == $version)
-    ' "$base/$module-$version.module" >/dev/null || fail "lost Java 17 attributes or platform dependency: $module"
-    grep -Fq '<artifactId>kbuild-platform</artifactId>' "$base/$module-$version.pom" || fail "lost POM platform import: $module"
+            .attributes["org.gradle.jvm.version"] == 17)
+    ' "$base/$module-$version.module" >/dev/null || fail "lost Java 17 attributes: $module"
+    while IFS= read -r -d '' metadata; do
+        if grep -Fq 'kbuild-platform' "$metadata"; then fail "build platform leaked into publication: $metadata"; fi
+        if [[ $metadata == *.module ]]; then
+            jq -e 'all(.variants[] | (.dependencies[]?, .dependencyConstraints[]?);
+                (.version.requires // .version.strictly // .version.prefers // "") |
+                test("^[0-9][0-9A-Za-z_.-]*$"))' "$metadata" >/dev/null || fail "unresolved dependency version: $metadata"
+        else
+            awk '
+                /<dependency>/ { dependency = 1; version = 0 }
+                dependency && /<version>[^<]+<\/version>/ { version = 1 }
+                /<\/dependency>/ { if (!version) exit 1; dependency = 0 }
+            ' "$metadata" || fail "versionless POM dependency: $metadata"
+        fi
+    done < <(find "$work/producer/$project/build/staging-repo" -type f \( -name '*.pom' -o -name '*.module' \) -print0)
     cp -R "$work/producer/$project/build/staging-repo/." "$work/downstream-maven/"
 done
 bundle_contents=$(unzip -Z1 "$work/producer/publish/build/maven-central-publishing/bundle.zip")
@@ -107,6 +119,8 @@ library_assets=$work/producer/library/build/github-release-assets
 cp "$library_assets"/library* "$work/http/v$version/"
 run_gradle "$work/consumer" "$work/consumer-gradle-home" \
     "-PdownstreamRepository=$work/downstream-maven" "-PlibraryReleaseRepository=$http_repository" run
+run_gradle "$work/consumer" "$work/consumer-pom-gradle-home" \
+    "-PdownstreamRepository=$work/downstream-maven" -PpomOnly=true run
 modules=(library)
 if [[ $local_kbuild == true ]]; then modules+=(kbuild kbuild-platform); fi
 for module in "${modules[@]}"; do
@@ -116,4 +130,4 @@ requests=$(sed -n 's/.*"\(GET\|HEAD\) \([^ ]*\) HTTP\/.*/\2/p' "$server_log")
 while IFS= read -r path; do
     [[ $path == "/v$version/kbuild-"* || $path == "/v$version/library-"* ]] || fail "unrelated coordinate requested from release server: $path"
 done <<< "$requests"
-printf '%s\n' 'Verified all six plugin IDs, the GitHub library helper, Java 17 attributes, platform constraints, downstream Central packaging, and anonymous JVM/KMP consumers'
+printf '%s\n' 'Verified all six plugin IDs, the GitHub library helper, Java 17 attributes, resolved publication versions without a leaked platform, downstream Central packaging, and anonymous JVM/KMP consumers'

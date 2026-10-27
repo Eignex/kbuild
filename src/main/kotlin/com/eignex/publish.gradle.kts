@@ -3,6 +3,7 @@ import com.eignex.kbuild.MavenPublishExtension
 import com.eignex.kbuild.GitHubPublishExtension
 import org.gradle.api.provider.Property
 import org.gradle.api.provider.Provider
+import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
 
 plugins {
     `maven-publish`
@@ -106,6 +107,7 @@ afterEvaluate {
     }
 
     fun MavenPublication.configureCommonPom() {
+        versionMapping { allVariants { fromResolutionResult() } }
         pom {
             name.set(artifactId)
             description.set(pomDescription)
@@ -168,6 +170,26 @@ afterEvaluate {
                     password = findProperty("mavenCentralPassword") as String? ?: ""
                 }
             }
+        }
+    }
+
+    // KMP variants do not supply Gradle's default version-mapping classpaths.
+    val multiplatform = extensions.findByType<KotlinMultiplatformExtension>()
+    multiplatform?.targets?.configureEach {
+        val main = compilations.getByName("main")
+        mavenPublication {
+            versionMapping {
+                allVariants { fromResolutionOf(main.compileDependencyConfigurationName) }
+                main.runtimeDependencyConfigurationName?.let { runtime ->
+                    usage("java-runtime") { fromResolutionOf(runtime) }
+                    usage("kotlin-runtime") { fromResolutionOf(runtime) }
+                }
+            }
+        }
+    }
+    if (multiplatform != null) {
+        publishing.publications.named<MavenPublication>("kotlinMultiplatform") {
+            versionMapping { allVariants { fromResolutionOf("commonMainResolvableDependenciesMetadata") } }
         }
     }
 

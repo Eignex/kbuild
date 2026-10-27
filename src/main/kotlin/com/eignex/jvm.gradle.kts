@@ -1,5 +1,6 @@
 import com.eignex.kbuild.getOrCreateEignexBuildExtension
 import com.eignex.kbuild.configureKbuildJvm
+import com.eignex.kbuild.createKbuildPlatformConfiguration
 
 plugins {
     kotlin("jvm")
@@ -40,14 +41,7 @@ afterEvaluate {
         jvmToolchain(eignexBuild.jvmToolchain.get())
     }
     if (eignexBuild.usePlatformDependencies.get()) {
-        val platform = project.dependencies.platform(
-            "${eignexBuild.platformGroup.get()}:${eignexBuild.platformArtifact.get()}:" +
-                eignexBuild.platformVersion.get(),
-        )
-        dependencies {
-            "implementation"(platform)
-            "testImplementation"(platform)
-        }
+        project.createKbuildPlatformConfiguration(eignexBuild)
     }
     if (eignexBuild.useKotlinTestDependency.get()) {
         dependencies { "testImplementation"(kotlin("test")) }
