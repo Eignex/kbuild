@@ -13,6 +13,46 @@ import java.util.jar.JarFile
 /** Builds real mixed-release artifacts and executes them through the JVM's JAR class loader. */
 class JvmBaselineTest {
     @ParameterizedTest
+    @ValueSource(strings = ["jvm", "kmp", "cli"])
+    fun `default compilation and test toolchains use Java 17`(plugin: String, @TempDir dir: File) {
+        val multiplatform = plugin != "jvm"
+        val main = if (multiplatform) "jvmMain" else "main"
+        val probe = probe(dir, """
+            plugins { id("com.eignex.$plugin") }
+            eignexBuild { usePlatformDependencies.set(false) }
+            ${if (plugin != "cli") "eignexPublish { publish.set(false) }" else ""}
+            ${if (multiplatform) "kotlin { jvm() }" else ""}
+            tasks.register("verifyDefaultJvm") {
+                doLast {
+                    tasks.withType<JavaCompile>().forEach {
+                        check(it.javaCompiler.get().metadata.languageVersion.asInt() == 17)
+                        check(it.options.release.get() == 17)
+                    }
+                    tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile>().forEach {
+                        check(it.compilerOptions.jvmTarget.get().target == "17")
+                    }
+                    tasks.withType<Test>().forEach {
+                        check(it.javaLauncher.get().metadata.languageVersion.asInt() == 17)
+                    }
+                    tasks.withType<dev.detekt.gradle.Detekt>().forEach {
+                        check(it.jvmTarget.get() == "17")
+                    }
+                }
+            }
+        """)
+        probe.write("src/$main/kotlin/example/KotlinBaseline.kt", "package example\ninternal class KotlinBaseline\n")
+        probe.write("src/$main/java/example/JavaBaseline.java", "package example; final class JavaBaseline {}\n")
+        probe.build(if (multiplatform) "jvmJar" else "jar", "verifyDefaultJvm")
+        val jarName = if (multiplatform) "probe-jvm-SNAPSHOT.jar" else "probe-SNAPSHOT.jar"
+        JarFile(probe.file("build/libs/$jarName")).use { jar ->
+            for (name in listOf("KotlinBaseline", "JavaBaseline")) {
+                val header = jar.getInputStream(jar.getJarEntry("example/$name.class")).use { it.readNBytes(8) }
+                assertEquals(61, ((header[6].toInt() and 255) shl 8) or (header[7].toInt() and 255), name)
+            }
+        }
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = ["jvm", "kmp"])
     fun `one published artifact selects the implementation on each JDK`(plugin: String, @TempDir dir: File) {
         val kmp = plugin == "kmp"
@@ -126,6 +166,7 @@ class JvmBaselineTest {
     fun `an explicit per-compilation target survives the baseline`(@TempDir dir: File) {
         val probe = kmpProbe(dir, """
             eignexBuild {
+                jvmToolchain.set(25)
                 jvmTarget.set(17)
                 usePlatformDependencies.set(false)
             }
