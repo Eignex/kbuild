@@ -27,7 +27,7 @@ abstract class EignexBuildExtension {
     /** JDKs on which to run tests against the packaged JVM JAR. Defaults to an empty list. */
     abstract val packagedTestJdks: ListProperty<Int>
 
-    /** Whether to add the platform BOM and kotlin-test dependencies. */
+    /** Whether to use the build-only platform BOM for dependency version resolution. */
     abstract val usePlatformDependencies: Property<Boolean>
 
     /** Whether to add `kotlin-test` to test source sets. Defaults to `true`. */

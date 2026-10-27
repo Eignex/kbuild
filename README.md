@@ -72,8 +72,8 @@ plugins { id("com.eignex.jvm") }
 ```
 
 For KMP or CLI projects, use the corresponding plugin and declare targets in `kotlin { }`.
-JVM and KMP libraries automatically depend on the matching `com.eignex:kbuild-platform`.
-Plugin repositories do not resolve this dependency; add its repository in the root build:
+JVM and KMP conventions use the matching `com.eignex:kbuild-platform` during the build.
+Add its dependency repository in the root build:
 
 ```kotlin
 allprojects {
@@ -84,20 +84,14 @@ allprojects {
             metadataSources { gradleMetadata() }
             content { includeModule("com.eignex", "kbuild-platform") }
         }
-        mavenCentral {
-            metadataSources { gradleMetadata(); mavenPom() }
-        }
+        mavenCentral()
     }
 }
 ```
 
-Keep `gradleMetadata()` to preserve variants and platform constraints. Consumers of published
-libraries retaining the KBuild platform also need this repository, even if the library comes from
-Maven Central. Configure their Maven repositories with the metadata sources shown above so Gradle
-reads module metadata before POM platform imports.
-
-This Ivy layout is for Gradle. For Maven consumers, set `eignexBuild.usePlatformDependencies` to
-`false` and manage dependency versions with a Maven-compatible platform.
+Keep `gradleMetadata()` for GitHub assets. The platform only supplies build-time versions;
+published libraries carry concrete dependency versions in their POM and Gradle metadata.
+Their consumers need only the library's repository and its normal dependency repositories.
 
 ## Build configuration
 
@@ -228,6 +222,7 @@ mavenPublish {
 
 Multiple license entries are supported; they replace the default license. `licenseName` and
 `licenseUrl` remain available for a single license. See [Maven metadata options](src/main/kotlin/com/eignex/kbuild/MavenPublishExtension.kt).
+Publications use resolved dependency versions without exporting KBuild's build platform.
 Central publishing supports local staging, snapshots, and conditional in-memory signing. Bundles
 retain payloads, sources, documentation, metadata, signatures, and required MD5/SHA-1 checksums;
 optional SHA-256/SHA-512 sidecars and signature checksums are omitted.
@@ -269,8 +264,7 @@ It applies standard `maven-publish` without Central or Eignex metadata conventio
 `releaseVersion`, `releaseTag` (default `v<version>`), `assetsDirectory`, and release notes/prerelease flags.
 
 Consumers use the installation section's Ivy layout with their library's release URL and module
-filter, plus `implementation("org.example:core:1.2.3")`. Adjust `v[revision]` for custom tags;
-retain the KBuild platform repository if the library depends on it.
+filter, plus `implementation("org.example:core:1.2.3")`. Adjust `v[revision]` for custom tags.
 
 ## Building KBuild
 
