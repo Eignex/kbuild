@@ -125,12 +125,7 @@ jobs:
         if: env.DRY_RUN != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          args=(--verify-tag --generate-notes)
-          if [[ "$RELEASE_VERSION" == *-* ]]; then
-            args+=(--prerelease)
-          fi
-          gh release create "$GITHUB_REF_NAME" build/release-assets/* "${args[@]}"
+        run: ./gradlew :publishToGitHubRelease -PciVersion="$RELEASE_VERSION"
 
       - name: Verify anonymous resolution from the public release
         if: env.DRY_RUN != 'true'

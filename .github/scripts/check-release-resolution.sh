@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Resolve plugins and published downstream libraries using separate empty Gradle homes.
+# Resolve plugins and published libraries using separate empty Gradle homes.
 # JDK 25's jwebserver serves the exact anonymous GitHub download layout locally.
 set -euo pipefail
 
@@ -32,7 +32,7 @@ cleanup() {
     rm -r -- "$work"
 }
 trap cleanup EXIT
-mkdir -p "$work/home" "$work/producer" "$work/consumer" "$work/downstream-maven"
+mkdir -p "$work/home" "$work/producer" "$work/consumer" "$work/downstream-maven" "$work/http/v$version"
 for fixture in release-resolution release-downstream; do
     destination=$work/producer
     [[ $fixture != release-downstream ]] || destination=$work/consumer
@@ -46,22 +46,26 @@ for name in PATH JAVA_HOME JAVA_HOME_17_X64 JAVA_HOME_21_X64 JAVA_HOME_25_X64 LA
     if [[ -v $name ]]; then clean_env+=("$name=${!name}"); fi
 done
 server_log=$work/http.log
+local_kbuild=false
 if [[ -z $repository ]]; then
+    local_kbuild=true
     bash "$root/.github/scripts/check-publication-files.sh" "$assets" --version "$version"
-    mkdir -p "$work/http/v$version"
     cp "$assets"/* "$work/http/v$version/"
-    [[ -x ${JAVA_HOME:-}/bin/jwebserver ]] || fail "JAVA_HOME must point to JDK 25 (jwebserver is required)"
-    "${clean_env[@]}" "$JAVA_HOME/bin/jwebserver" -b 127.0.0.1 -p 0 -d "$work/http" > "$server_log" 2>&1 &
-    server_pid=$!
-    for ((attempt=0; attempt<100; attempt++)); do
-        repository=$(sed -n 's/^URL \(http:\/\/.*\)$/\1/p' "$server_log")
-        if [[ -n $repository ]]; then break; fi
-        kill -0 "$server_pid" 2>/dev/null || { cat "$server_log" >&2; fail "jwebserver failed to start"; }
-        sleep 0.1
-    done
-    [[ -n $repository ]] || fail "timed out starting jwebserver"
-    repository=${repository%/}
 fi
+# The probe library is always served locally, including when testing a public KBuild release.
+[[ -x ${JAVA_HOME:-}/bin/jwebserver ]] || fail "JAVA_HOME must point to JDK 25 (jwebserver is required)"
+"${clean_env[@]}" "$JAVA_HOME/bin/jwebserver" -b 127.0.0.1 -p 0 -d "$work/http" > "$server_log" 2>&1 &
+server_pid=$!
+http_repository=
+for ((attempt=0; attempt<100; attempt++)); do
+    http_repository=$(sed -n 's/^URL \(http:\/\/.*\)$/\1/p' "$server_log")
+    if [[ -n $http_repository ]]; then break; fi
+    kill -0 "$server_pid" 2>/dev/null || { cat "$server_log" >&2; fail "jwebserver failed to start"; }
+    sleep 0.1
+done
+[[ -n $http_repository ]] || fail "timed out starting jwebserver"
+http_repository=${http_repository%/}
+[[ -n $repository ]] || repository=$http_repository
 properties=("-PreleaseRepository=$repository" "-PkbuildVersion=$version" "-PciVersion=$version")
 run_gradle() {
     local project=$1 home=$2
@@ -75,7 +79,7 @@ run_gradle() {
         "${properties[@]}" "$@"
 }
 run_gradle "$work/producer" "$work/producer-gradle-home" \
-    :library:verifyPlatform :library:publishAllPublicationsToLocalStagingRepository \
+    :library:verifyPlatform :library:githubReleaseAssets :library:publishAllPublicationsToLocalStagingRepository \
     :multiplatform:publishAllPublicationsToLocalStagingRepository :cli:runJvm \
     :publish:publishAllPublicationsToMavenCentralStagingRepository :publish:mavenCentralBundle \
     :lint:writeEignexDetektConfig
@@ -96,14 +100,18 @@ for project in library multiplatform; do
 done
 bundle_contents=$(unzip -Z1 "$work/producer/publish/build/maven-central-publishing/bundle.zip")
 grep -Fq "publish-$version.pom" <<< "$bundle_contents" || fail "downstream Central bundle is missing its POM"
-run_gradle "$work/consumer" "$work/consumer-gradle-home" "-PdownstreamRepository=$work/downstream-maven" run
-if [[ -n $server_pid ]]; then
-    for module in kbuild kbuild-platform; do
-        grep -Fq "\"GET /v$version/$module-$version.module " "$server_log" || fail "module was not fetched over HTTP: $module"
-    done
-    requests=$(sed -n 's/.*"\(GET\|HEAD\) \([^ ]*\) HTTP\/.*/\2/p' "$server_log")
-    while IFS= read -r path; do
-        [[ $path == "/v$version/kbuild-"* ]] || fail "unrelated coordinate requested from release server: $path"
-    done <<< "$requests"
-fi
-printf '%s\n' 'Verified all five plugin IDs, transitive plugins, Java 17 attributes, platform constraints, downstream Central packaging, and anonymous JVM/KMP consumers'
+library_assets=$work/producer/library/build/github-release-assets
+(cd "$library_assets" && sha256sum --strict --check SHA256SUMS)
+cp "$library_assets"/library* "$work/http/v$version/"
+run_gradle "$work/consumer" "$work/consumer-gradle-home" \
+    "-PdownstreamRepository=$work/downstream-maven" "-PlibraryReleaseRepository=$http_repository" run
+modules=(library)
+if [[ $local_kbuild == true ]]; then modules+=(kbuild kbuild-platform); fi
+for module in "${modules[@]}"; do
+    grep -Fq "\"GET /v$version/$module-$version.module " "$server_log" || fail "module was not fetched over HTTP: $module"
+done
+requests=$(sed -n 's/.*"\(GET\|HEAD\) \([^ ]*\) HTTP\/.*/\2/p' "$server_log")
+while IFS= read -r path; do
+    [[ $path == "/v$version/kbuild-"* || $path == "/v$version/library-"* ]] || fail "unrelated coordinate requested from release server: $path"
+done <<< "$requests"
+printf '%s\n' 'Verified all six plugin IDs, the GitHub library helper, Java 17 attributes, platform constraints, downstream Central packaging, and anonymous JVM/KMP consumers'

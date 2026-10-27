@@ -1,4 +1,4 @@
-plugins { id("com.eignex.jvm") }
+plugins { id("com.eignex.jvm"); id("com.eignex.publish.github") }
 group = "org.example"
 eignexPublish {
     description.set("Anonymous release resolution probe.")

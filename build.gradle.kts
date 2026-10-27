@@ -1,8 +1,7 @@
-import java.security.MessageDigest
-
 plugins {
     `kotlin-dsl`
     `maven-publish`
+    id("com.eignex.publish.github")
     alias(libs.plugins.dokka)
 }
 
@@ -70,6 +69,7 @@ val generateKbuildVersion = tasks.register("generateKbuildVersion") {
 }
 
 sourceSets.main {
+    kotlin.srcDir("build-logic/src/main/kotlin")
     kotlin.srcDir(generateKbuildVersion)
 }
 
@@ -82,6 +82,10 @@ gradlePlugin {
         named("cli")     { id = "com.eignex.cli" }
         named("publish") { id = "com.eignex.publish" }
         named("lint")    { id = "com.eignex.lint" }
+        create("githubPublish") {
+            id = "com.eignex.publish.github"
+            implementationClass = "com.eignex.kbuild.GitHubPublishPlugin"
+        }
     }
 }
 
@@ -101,7 +105,10 @@ val javadocJar = tasks.register<Jar>("javadocJar") {
 // Document the authored API rather than those implementation adapters.
 dokka {
     dokkaSourceSets.configureEach {
-        sourceRoots.setFrom(layout.projectDirectory.dir("src/main/kotlin"))
+        sourceRoots.setFrom(
+            layout.projectDirectory.dir("src/main/kotlin"),
+            layout.projectDirectory.dir("build-logic/src/main/kotlin"),
+        )
     }
 }
 
@@ -119,35 +126,16 @@ tasks.withType<org.jetbrains.dokka.gradle.tasks.DokkaGenerateTask>().configureEa
 // Exercise publication-only artifacts in ordinary builds and release dry runs as well.
 tasks.named("assemble") { dependsOn(sourcesJar, javadocJar) }
 
-// GitHub Release assets share one flat, versioned directory. Keep Gradle's generated
-// metadata intact: its relative artifact URLs already match these filenames.
-val releaseAssets = tasks.register<Sync>("releaseAssets") {
-    val releaseVersion = project.version.toString()
-    group = "publishing"
-    description = "Stages KBuild and platform metadata for an anonymous GitHub Release."
-    into(layout.buildDirectory.dir("release-assets"))
-    duplicatesStrategy = DuplicatesStrategy.FAIL
-    from(tasks.named("jar"), sourcesJar, javadocJar)
-    from(tasks.named("generateMetadataFileForPluginMavenPublication")) {
-        rename { "kbuild-$releaseVersion.module" }
-    }
-    from(tasks.named("generatePomFileForPluginMavenPublication")) {
-        rename { "kbuild-$releaseVersion.pom" }
-    }
-    dependsOn(":kbuild-platform:releaseAssets")
-    from(project(":kbuild-platform").layout.buildDirectory.dir("release-assets"))
-    doLast {
-        val checksums = destinationDir.listFiles().orEmpty()
-            .filter { it.isFile && it.name != "SHA256SUMS" }
-            .sortedBy { it.name }
-            .joinToString("") { file ->
-                val digest = MessageDigest.getInstance("SHA-256")
-                    .digest(file.readBytes()).joinToString("") { "%02x".format(it) }
-                "$digest  ${file.name}\n"
-            }
-        destinationDir.resolve("SHA256SUMS").writeText(checksums)
-    }
+// The bootstrap included build and published helper compile the same plugin source.
+githubPublish {
+    repository.set("Eignex/kbuild")
+    publicationNames.set(listOf("pluginMaven"))
+    includeProjects.set(listOf(":kbuild-platform"))
+    assetsDirectory.set(layout.buildDirectory.dir("release-assets"))
 }
+
+// Keep the existing CI entry point; staging and uploading are reusable helper tasks.
+tasks.register("releaseAssets") { dependsOn("githubReleaseAssets") }
 
 publishing {
     publications {
