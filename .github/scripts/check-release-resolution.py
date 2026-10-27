@@ -34,6 +34,7 @@ def run_gradle(gradle, project, home, arguments, env):
     command = [str(gradle), "-p", str(project), "--gradle-user-home", str(home),
                "--no-daemon", "--console=plain", "--warning-mode=fail", "--stacktrace",
                "-Dorg.gradle.workers.max=2",
+               "-Dorg.gradle.java.installations.fromEnv=JAVA_HOME_17_X64,JAVA_HOME_21_X64,JAVA_HOME_25_X64",
                "-Duser.home=" + str(home.parent / "home"), "-Dorg.gradle.jvmargs=-Xmx2g", *arguments]
     subprocess.run(command, env=env, check=True)
 
@@ -45,6 +46,10 @@ def verify_downstream_publication(producer, version):
         # dependencies (including the platform) belong to that target's runtime variant.
         base = producer / project / "build/staging-repo/org/example" / module / version
         metadata = json.loads((base / f"{module}-{version}.module").read_text())
+        for variant in metadata["variants"]:
+            attributes = variant["attributes"]
+            if attributes.get("org.gradle.category") == "library" and attributes.get("org.gradle.usage") in {"java-api", "java-runtime"}:
+                assert attributes["org.gradle.jvm.version"] == 17, (module, attributes)
         dependencies = [dep for variant in metadata["variants"] for dep in variant.get("dependencies", [])]
         assert any(dep["group"] == "com.eignex" and dep["module"] == "kbuild-platform"
                    and dep["version"]["requires"] == version for dep in dependencies), (module, dependencies)
@@ -58,7 +63,8 @@ def check(args, work):
     # distribution/cache or need developer credentials. All dependencies are downloaded afresh.
     gradle = Path(args.gradle).resolve()
     env = {key: value for key, value in os.environ.items()
-           if key in {"PATH", "JAVA_HOME", "LANG", "LC_ALL", "TMPDIR", "SYSTEMROOT"}}
+           if key in {"PATH", "JAVA_HOME", "JAVA_HOME_17_X64", "JAVA_HOME_21_X64", "JAVA_HOME_25_X64",
+                      "LANG", "LC_ALL", "TMPDIR", "SYSTEMROOT"}}
     # Prevent Gradle/Maven from reading ~/.gradle, ~/.m2, ~/.netrc or local init scripts.
     env["HOME"] = str(work / "home")
     Path(env["HOME"]).mkdir()

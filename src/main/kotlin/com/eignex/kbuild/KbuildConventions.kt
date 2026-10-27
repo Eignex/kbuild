@@ -5,7 +5,7 @@ import org.gradle.api.Project
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
 
 /** Default build JDK, independent of an explicitly configured bytecode baseline. */
-internal const val KBUILD_JVM_TOOLCHAIN = 25
+internal const val KBUILD_JVM_TOOLCHAIN = 17
 
 /**
  * Wires in the dependency baseline every multiplatform convention shares: the kbuild platform

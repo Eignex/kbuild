@@ -6,7 +6,7 @@ import org.gradle.api.file.RegularFileProperty
 
 /** Shared defaults and opt-outs used by the JVM, KMP, and CLI convention plugins. */
 abstract class EignexBuildExtension {
-    /** JVM toolchain used by Kotlin and lint. Defaults to 25. */
+    /** JVM toolchain used by Kotlin and lint. Defaults to 17. */
     abstract val jvmToolchain: Property<Int>
 
     /** Published JVM bytecode baseline. Defaults to [jvmToolchain]. */

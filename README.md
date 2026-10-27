@@ -148,7 +148,7 @@ but every value can be replaced or disabled:
 
 | Property | Default | Purpose |
 | --- | --- | --- |
-| jvmToolchain | `25` | JDK for compilation, tests, and Detekt |
+| jvmToolchain | `17` | JDK for compilation, tests, and Detekt |
 | jvmTarget | `jvmToolchain` | Default bytecode baseline and published JVM version |
 | multiReleaseJvmVersion | Unset | Opt-in newer JVM implementation in the same JAR |
 | packagedTestJdks | `[]` | JDKs for tests against the packaged JVM JAR |
@@ -186,8 +186,9 @@ eignexBuild {
 
 By default, KBuild adds the `com.eignex:kbuild-platform` BOM to `commonMain`/`commonTest` or
 JVM compile/test classpaths, adds `kotlin-test` to common tests, adds Maven Central, pins the JVM
-toolchain to 25, pins Node.js to 26.12.1, enables ABI validation, Kover, and lint, and uses a 120s
-JS test timeout.
+toolchain to 17, pins Node.js to 26.12.1, enables ABI validation, Kover, and lint, and uses a 120s
+JS test timeout. The default bytecode baseline is also Java 17. The Gradle daemon loading
+KBuild requires JDK 21 or newer; the consumer compilation and test toolchains default to 17.
 
 ## JVM baselines and multi-release JARs
 
@@ -502,8 +503,8 @@ with `dryRun=true` stage and validate assets without publishing; a manual publis
 version tag. Main pushes no longer upload KBuild snapshots to Sonatype. Existing Central releases
 and downstream library publishing are unaffected.
 
-To validate a candidate locally, with JDK 25 in `JAVA_HOME` and the wrapper's Gradle version
-installed (CI installs it with `setup-gradle`):
+To validate a candidate locally, with JDK 25 in `JAVA_HOME`, JDK 17 in `JAVA_HOME_17_X64`,
+and the wrapper's Gradle version installed (CI installs these with `setup-java` and `setup-gradle`):
 
 ```shell
 ./gradlew releaseAssets -PciVersion=1.3.6

@@ -92,7 +92,7 @@ jobs:
 
       - name: Verify anonymous resolution from the public release
         if: env.DRY_RUN != 'true'
-        # The check forwards only PATH/JAVA_HOME/locale and uses isolated HOME/Gradle homes.
+        # The check forwards only PATH/JDK paths/locale and uses isolated HOME/Gradle homes.
         # Neither the GitHub token nor Gradle's cached credentials reach these builds.
         run: |
           python3 .github/scripts/check-release-resolution.py --version "$RELEASE_VERSION" \

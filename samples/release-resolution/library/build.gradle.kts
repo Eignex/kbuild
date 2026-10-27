@@ -1,6 +1,5 @@
 plugins { id("com.eignex.jvm") }
 group = "org.example"
-eignexBuild { jvmToolchain.set(25) }
 eignexPublish {
     description.set("Anonymous release resolution probe.")
     githubRepo.set("Eignex/kbuild")
