@@ -1,94 +1,87 @@
 #!/usr/bin/env python3
-"""Verify KBuild's combined Central bundle and release plan without uploading."""
+"""Verify the exact flat GitHub Release layout and unmodified Gradle metadata."""
 import argparse
 import hashlib
+import json
 from pathlib import Path
 import re
 import sys
-import zipfile
+import xml.etree.ElementTree as ET
 
 
-EXPECTED = {
-    "kbuild": {"jar", "sources", "javadoc", "pom", "module"},
-    "kbuild-platform": {"pom", "module"},
-    **{f"com.eignex.{plugin}.gradle.plugin": {"pom"} for plugin in ("jvm", "kmp", "cli", "publish", "lint")},
+PLUGIN_DEPENDENCIES = {
+    "asm", "kotlin-gradle-plugin", "dokka-gradle-plugin", "kover-gradle-plugin",
+    "gradle-maven-central-publishing", "detekt-gradle-plugin",
 }
+PLATFORM_BOMS = {"kotlinx-coroutines-bom", "kotlinx-serialization-bom"}
+PLATFORM_CONSTRAINTS = {"junit-jupiter", "junit-platform-launcher"}
 
 
-def check_bundles(paths):
-    files = {}
-    for path in paths:
-        with zipfile.ZipFile(path) as bundle:
-            for entry in bundle.infolist():
-                if entry.is_dir():
-                    continue
-                name = entry.filename
-                if name in files:
-                    raise ValueError(f"duplicate bundle entry: {name}")
-                if name.endswith((".sha256", ".sha512")) or ".asc." in name:
-                    raise ValueError(f"unnecessary checksum: {name}")
-                files[name] = bundle.read(entry)
-    payloads = {name: data for name, data in files.items() if not name.endswith((".asc", ".md5", ".sha1"))}
-    slots = set()
-    allowed = set()
-    signatures = 0
-    for name, data in payloads.items():
-        parts = name.split("/")
-        if len(parts) < 5 or parts[:2] != ["com", "eignex"]:
-            raise ValueError(f"unexpected coordinate: {name}")
-        artifact = parts[-3]
-        kind = next((kind for suffix, kind in (("-sources.jar", "sources"), ("-javadoc.jar", "javadoc"),
-                    (".jar", "jar"), (".module", "module"), (".pom", "pom")) if name.endswith(suffix)), None)
-        if kind not in EXPECTED.get(artifact, set()) or (artifact, kind) in slots:
-            raise ValueError(f"unexpected or duplicate artifact: {name}")
-        slots.add((artifact, kind))
-        allowed.add(name)
-        for algorithm in ("md5", "sha1"):
-            checksum = name + "." + algorithm
-            if checksum not in files or files[checksum].decode().strip() != hashlib.new(algorithm, data).hexdigest():
-                raise ValueError(f"missing or invalid checksum: {checksum}")
-            allowed.add(checksum)
-        if name + ".asc" in files:
-            signatures += 1
-            allowed.add(name + ".asc")
-    expected_slots = {(artifact, kind) for artifact, kinds in EXPECTED.items() for kind in kinds}
-    if slots != expected_slots:
-        raise ValueError(f"missing publication artifacts: {sorted(expected_slots - slots)}")
-    if signatures not in (0, len(payloads)):
-        raise ValueError("publication bundle is only partially signed")
-    if set(files) != allowed:
-        raise ValueError(f"unexpected bundle files: {sorted(set(files) - allowed)}")
-    if len(files) != 36 + signatures:
-        raise ValueError(f"unexpected file budget: {len(files)}")
-    print(f"Verified {len(payloads)} artifacts, {signatures} signatures, {len(files)} files across 7 publications")
+def check_assets(directory, version):
+    if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?", version) or "SNAPSHOT" in version:
+        raise ValueError(f"expected a pinned release version, got: {version}")
+    expected = {
+        f"kbuild-{version}{suffix}" for suffix in
+        (".jar", "-sources.jar", "-javadoc.jar", ".pom", ".module")
+    } | {f"kbuild-platform-{version}{suffix}" for suffix in (".pom", ".module")}
+    actual = {file.name for file in directory.iterdir()}
+    if actual != expected | {"SHA256SUMS"}:
+        raise ValueError(f"unexpected asset layout; missing={expected - actual}, extra={actual - expected - {'SHA256SUMS'}}")
+    checksums = {}
+    for line in (directory / "SHA256SUMS").read_text().splitlines():
+        digest, name = line.split("  ", 1)
+        if name in checksums or name not in expected:
+            raise ValueError(f"unexpected or duplicate checksum: {name}")
+        checksums[name] = digest
+    if set(checksums) != expected:
+        raise ValueError("SHA256SUMS must cover every release asset exactly once")
+    for name, digest in checksums.items():
+        if hashlib.sha256((directory / name).read_bytes()).hexdigest() != digest:
+            raise ValueError(f"invalid SHA-256 checksum: {name}")
 
-
-def check_publish_plan(path):
-    tasks = re.findall(r"^(:\S+) SKIPPED$", Path(path).read_text(), re.MULTILINE)
-    uploads = [task for task in tasks if task.endswith(":uploadMavenCentralBundle")]
-    if uploads != [":uploadMavenCentralBundle"]:
-        raise ValueError(f"expected one root Central upload, found: {uploads}")
-    bundle = ":mavenCentralBundle"
-    clean = ":cleanMavenCentralStagingRepository"
-    staged = ":kbuild-platform:publishJavaPlatformPublicationToMavenCentralStagingRepository"
-    if not all(task in tasks for task in (bundle, clean, staged)):
-        raise ValueError("release plan is missing the combined bundle, shared cleanup, or platform staging")
-    publications = [task for task in tasks if re.fullmatch(r":(?:kbuild-platform:)?publish\w+PublicationToMavenCentralStagingRepository", task)]
-    if len(publications) != 7 or not all(tasks.index(clean) < tasks.index(task) < tasks.index(bundle) for task in publications):
-        raise ValueError("all seven publications must stage after cleanup and before bundling")
-    if tasks.index(bundle) > tasks.index(uploads[0]):
-        raise ValueError("Central upload must follow the combined bundle")
-    print("Verified one Central upload after staging all 7 publications")
+    for module in ("kbuild", "kbuild-platform"):
+        metadata = json.loads((directory / f"{module}-{version}.module").read_text())
+        component = metadata["component"]
+        if (component["group"], component["module"], component["version"]) != ("com.eignex", module, version):
+            raise ValueError(f"inconsistent module coordinates: {component}")
+        variants = {variant["name"]: variant for variant in metadata["variants"]}
+        for name, usage in (("apiElements", "java-api"), ("runtimeElements", "java-runtime")):
+            variant = variants[name]
+            attributes = variant["attributes"]
+            category = "platform" if module == "kbuild-platform" else "library"
+            if attributes["org.gradle.category"] != category or attributes["org.gradle.usage"] != usage:
+                raise ValueError(f"lost variant attributes: {module}/{name}")
+            dependencies = {dependency["module"] for dependency in variant.get("dependencies", [])}
+            if module == "kbuild" and name == "runtimeElements" and not PLUGIN_DEPENDENCIES <= dependencies:
+                raise ValueError(f"lost transitive plugin dependencies: {PLUGIN_DEPENDENCIES - dependencies}")
+            if module == "kbuild-platform":
+                constraints = {constraint["module"] for constraint in variant["dependencyConstraints"]}
+                if not PLATFORM_BOMS <= dependencies or not PLATFORM_CONSTRAINTS <= constraints:
+                    raise ValueError(f"lost platform imports or constraints: {name}")
+        for variant in metadata["variants"]:
+            for artifact in variant.get("files", []):
+                name = artifact["url"]
+                if name not in expected or artifact["name"] != name:
+                    raise ValueError(f"metadata URL does not resolve in the flat release: {name}")
+                data = (directory / name).read_bytes()
+                if artifact["size"] != len(data):
+                    raise ValueError(f"invalid metadata size: {name}")
+                for algorithm in ("sha512", "sha256", "sha1", "md5"):
+                    if artifact[algorithm] != hashlib.new(algorithm, data).hexdigest():
+                        raise ValueError(f"invalid metadata {algorithm}: {name}")
+        pom = ET.parse(directory / f"{module}-{version}.pom").getroot()
+        ns = {"m": "http://maven.apache.org/POM/4.0.0"}
+        if [pom.findtext(f"m:{field}", namespaces=ns) for field in ("groupId", "artifactId", "version")] != ["com.eignex", module, version]:
+            raise ValueError(f"inconsistent POM coordinates: {module}")
+    print(f"Verified {len(expected)} versioned release assets, checksums, plugin variants/dependencies, and platform constraints")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("bundle", help="the combined plugin/platform bundle ZIP")
-    parser.add_argument("--publish-plan", help="output of publishToMavenCentral --dry-run --console=plain")
+    parser.add_argument("directory", type=Path, help="flat release-assets directory")
+    parser.add_argument("--version", required=True)
     args = parser.parse_args()
     try:
-        check_bundles([args.bundle])
-        if args.publish_plan:
-            check_publish_plan(args.publish_plan)
-    except (ValueError, KeyError, zipfile.BadZipFile) as error:
+        check_assets(args.directory, args.version)
+    except (ValueError, KeyError, OSError, ET.ParseError) as error:
         sys.exit(str(error))

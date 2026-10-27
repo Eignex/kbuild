@@ -10,7 +10,7 @@
 
 # KBuild
 
-[![Maven Central](https://img.shields.io/maven-central/v/com.eignex/kbuild.svg?label=Maven%20Central)](https://central.sonatype.com/artifact/com.eignex/kbuild)
+[![GitHub Release](https://img.shields.io/github/v/release/Eignex/kbuild)](https://github.com/Eignex/kbuild/releases)
 [![Build](https://github.com/eignex/kbuild/actions/workflows/build.yml/badge.svg)](https://github.com/eignex/kbuild/actions/workflows/build.yml)
 [![License](https://img.shields.io/github/license/eignex/kbuild)](https://github.com/eignex/kbuild/blob/main/LICENSE)
 
@@ -29,13 +29,105 @@ KBuild provides five convention plugins:
 - `com.eignex.lint`: Detekt with the built-in Eignex rules, KDoc checks, and Kotlin/Native-safe
   test-name checks.
 
-Apply one plugin in a consumer module:
+## Installing from GitHub Releases
+
+Future KBuild versions are distributed as public [GitHub Release assets](https://github.com/Eignex/kbuild/releases).
+Downloads require no GitHub login, token, or GitHub Packages configuration. Use a pinned version
+whose release assets have been uploaded and verified; the examples below use `1.3.6` as the
+migration example, not as a claim that this version is already available. Existing Maven Central
+versions remain usable with their existing repository configuration.
+
+In `settings.gradle.kts`, configure plugin resolution before applying KBuild:
+
+```kotlin
+pluginManagement {
+    val kbuildVersion = "1.3.6"
+    repositories {
+        ivy {
+            url = uri("https://github.com/Eignex/kbuild/releases/download")
+            patternLayout {
+                artifact("v[revision]/[artifact]-[revision](-[classifier]).[ext]")
+            }
+            metadataSources { gradleMetadata() }
+            content { includeModule("com.eignex", "kbuild") }
+        }
+        gradlePluginPortal()
+        mavenCentral()
+    }
+    resolutionStrategy.eachPlugin {
+        if (requested.id.id in setOf(
+            "com.eignex.jvm", "com.eignex.kmp", "com.eignex.cli",
+            "com.eignex.publish", "com.eignex.lint",
+        )) {
+            useModule("com.eignex:kbuild:${requested.version ?: kbuildVersion}")
+        }
+    }
+    plugins {
+        id("com.eignex.jvm") version kbuildVersion
+        id("com.eignex.kmp") version kbuildVersion
+        id("com.eignex.cli") version kbuildVersion
+        id("com.eignex.publish") version kbuildVersion
+        id("com.eignex.lint") version kbuildVersion
+    }
+}
+```
+
+Then apply a plugin in a module without repeating the version:
 
 ```kotlin
 plugins {
     id("com.eignex.jvm") // or com.eignex.kmp / com.eignex.cli
 }
 ```
+
+Plugin repositories do not resolve ordinary dependencies. Add the platform repository to each
+consuming project's `repositories`, or use this in the root `build.gradle.kts` for all modules:
+
+```kotlin
+allprojects {
+    repositories {
+        ivy {
+            url = uri("https://github.com/Eignex/kbuild/releases/download")
+            patternLayout {
+                artifact("v[revision]/[artifact]-[revision](-[classifier]).[ext]")
+            }
+            metadataSources { gradleMetadata() }
+            content { includeModule("com.eignex", "kbuild-platform") }
+        }
+        mavenCentral {
+            metadataSources { gradleMetadata(); mavenPom() }
+        }
+    }
+}
+```
+
+Both repositories use Gradle Module Metadata to preserve variants, transitive plugin dependencies,
+and platform constraints. Do not replace `gradleMetadata()` with artifact-only resolution.
+Content filters keep unrelated coordinates off GitHub. Only the existing five plugin IDs map
+to `com.eignex:kbuild`; separate plugin marker assets are unnecessary.
+
+The JVM and KMP conventions add the matching `com.eignex:kbuild-platform` version automatically.
+Without the conventions, use the same dependency repository and import it explicitly:
+
+```kotlin
+dependencies {
+    implementation(platform("com.eignex:kbuild-platform:1.3.6"))
+}
+```
+
+Published downstream libraries retain their platform dependency. Gradle users of those libraries
+must add the platform repository above, even when the library itself comes from Maven Central;
+no credentials are needed. Configure that library's Maven repository (including Maven Central)
+with `metadataSources { gradleMetadata(); mavenPom() }` as shown above. Direct metadata lookup
+avoids parsing the library POM's platform import before Gradle follows its metadata marker;
+a Maven POM import cannot resolve from an Ivy repository. Apply the same setting to a custom
+Maven repository hosting downstream libraries. Repository declarations are not inherited from
+a library publication.
+
+This distribution uses Gradle's Ivy layout and metadata; Maven and other tools cannot resolve
+this platform directly. Libraries targeting those consumers should disable
+`eignexBuild.usePlatformDependencies` and manage their dependency versions through a
+Maven-compatible platform. KBuild's downstream Central publishing conventions remain available.
 
 The `jvm` and `kmp` plugins apply `publish` and `lint` automatically. The `cli` plugin applies
 `lint` automatically. Consumer projects declare their own Kotlin targets, for example:
@@ -386,19 +478,50 @@ For your own projects, fork and publish your own version.
 
 ## Building KBuild
 
-KBuild publishes its plugin, platform BOM, and five plugin markers together in one Maven Central
-deployment. The seven Maven coordinates and their shared version are unchanged; a KBuild release
-uses one publish operation instead of two. `./gradlew mavenCentralBundle` stages both projects
-locally and assembles `build/maven-central-publishing/bundle.zip` without uploading. CI checks
-that the bundle contains every publication and the release task graph has exactly one upload.
-`./gradlew publishToMavenCentral` publishes that combined bundle. Snapshot repository publishing
-continues to upload both projects directly as before.
+KBuild itself is released through GitHub, while `com.eignex.publish` continues to publish downstream
+libraries to Maven Central, including signing and the existing bundle file policy.
 
-The Maven Central bundle retains the plugin, platform BOM, plugin markers, sources,
-documentation, Gradle metadata, signatures, and required MD5/SHA-1 checksums. Optional SHA-256/
-SHA-512 sidecars and checksums of signatures are excluded from the bundle. For the
-current seven publications this reduces a signed release from 72 files to 48 without changing
-any artifact's contents.
+`./gradlew releaseAssets -PciVersion=1.3.6` stages these files in `build/release-assets`:
+
+```text
+kbuild-1.3.6.jar
+kbuild-1.3.6-sources.jar
+kbuild-1.3.6-javadoc.jar
+kbuild-1.3.6.module
+kbuild-1.3.6.pom
+kbuild-platform-1.3.6.module
+kbuild-platform-1.3.6.pom
+SHA256SUMS
+```
+
+A `v1.3.6` tag uploads these assets to the matching public GitHub Release. Relative URLs in the
+generated `.module` files match the asset names without rewriting metadata. Release CI builds and
+tests, validates every asset and checksum, then proves anonymous resolution before uploading.
+It repeats the consumer checks against the actual public download URLs afterward. Manual runs
+with `dryRun=true` stage and validate assets without publishing; a manual publish requires a
+version tag. Main pushes no longer upload KBuild snapshots to Sonatype. Existing Central releases
+and downstream library publishing are unaffected.
+
+To validate a candidate locally, with JDK 25 in `JAVA_HOME` and the wrapper's Gradle version
+installed (CI installs it with `setup-gradle`):
+
+```shell
+./gradlew releaseAssets -PciVersion=1.3.6
+python3 .github/scripts/check-publication-files.py build/release-assets --version 1.3.6
+python3 .github/scripts/check-release-resolution.py --version 1.3.6 --gradle "$(command -v gradle)"
+# After publishing, also check the real public URLs:
+python3 .github/scripts/check-release-resolution.py --version 1.3.6 --gradle "$(command -v gradle)" \
+  --repository-url https://github.com/Eignex/kbuild/releases/download
+```
+
+The resolution check serves the exact release layout over anonymous HTTP, uses two separate empty
+Gradle user homes and an isolated home directory, and forwards no credentials. It resolves all five
+plugin IDs and their transitive plugins, checks imported BOMs and direct platform constraints,
+publishes JVM and KMP libraries to local Maven staging, builds a downstream Central bundle, and
+runs an independent Java consumer of the published libraries and their transitive platform.
+CI verifies this layout before any consumers are switched; migrate a consumer only after the
+chosen public release passes the same check. `publishToMavenLocal` remains available for local
+experiments.
 
 Run `./gradlew build`; Foojay toolchain resolution provisions JDKs 17, 21, and 25 when needed.
 The build also assembles publication sources and API documentation, failing on Dokka warnings

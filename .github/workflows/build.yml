@@ -34,6 +34,7 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
         with:
+          gradle-version: wrapper
           cache-read-only: false
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 
@@ -50,12 +51,15 @@ jobs:
       - name: Build
         run: ./gradlew build
 
-      - name: Verify combined Central deployment locally
+      - name: Verify GitHub Release assets and anonymous consumers
+        env:
+          RELEASE_VERSION: 0.0.0-ci.${{ github.run_id }}
         run: |
-          ./gradlew mavenCentralBundle
-          # Avoid serializing upload credentials while inspecting the plan without secrets.
-          ./gradlew publishToMavenCentral --dry-run --no-configuration-cache --console=plain > build/central-publish-plan.txt
-          python3 .github/scripts/check-publication-files.py build/maven-central-publishing/bundle.zip --publish-plan build/central-publish-plan.txt
+          ./gradlew releaseAssets -PciVersion="$RELEASE_VERSION"
+          # A second run also verifies staging works with the configuration cache.
+          ./gradlew releaseAssets -PciVersion="$RELEASE_VERSION"
+          python3 .github/scripts/check-publication-files.py build/release-assets --version "$RELEASE_VERSION"
+          python3 .github/scripts/check-release-resolution.py --version "$RELEASE_VERSION" --gradle "$(command -v gradle)"
 
       - name: Set up Android consumer tools
         run: |

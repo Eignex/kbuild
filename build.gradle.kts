@@ -1,8 +1,8 @@
+import java.security.MessageDigest
+
 plugins {
     `kotlin-dsl`
     `maven-publish`
-    signing
-    alias(libs.plugins.maven.central.publishing)
     alias(libs.plugins.dokka)
 }
 
@@ -119,21 +119,34 @@ tasks.withType<org.jetbrains.dokka.gradle.tasks.DokkaGenerateTask>().configureEa
 // Exercise publication-only artifacts in ordinary builds and release dry runs as well.
 tasks.named("assemble") { dependsOn(sourcesJar, javadocJar) }
 
-// Central requires MD5/SHA-1 and signatures; the extra digest sidecars multiply file usage.
-allprojects {
-    tasks.withType<Zip>().matching { it.name == "mavenCentralBundle" }.configureEach {
-        exclude("**/*.sha256", "**/*.sha512", "**/*.asc.*")
-    }
-}
-
-// One Portal deployment contains the plugin, all plugin markers, and the platform BOM.
-// Both projects stage into this project's repository before its sole bundle is assembled.
-tasks.named<Zip>("mavenCentralBundle") {
-    dependsOn(
-        "publishAllPublicationsToMavenCentralStagingRepository",
-        ":kbuild-platform:publishAllPublicationsToMavenCentralStagingRepository",
-    )
+// GitHub Release assets share one flat, versioned directory. Keep Gradle's generated
+// metadata intact: its relative artifact URLs already match these filenames.
+val releaseAssets = tasks.register<Sync>("releaseAssets") {
+    val releaseVersion = project.version.toString()
+    group = "publishing"
+    description = "Stages KBuild and platform metadata for an anonymous GitHub Release."
+    into(layout.buildDirectory.dir("release-assets"))
     duplicatesStrategy = DuplicatesStrategy.FAIL
+    from(tasks.named("jar"), sourcesJar, javadocJar)
+    from(tasks.named("generateMetadataFileForPluginMavenPublication")) {
+        rename { "kbuild-$releaseVersion.module" }
+    }
+    from(tasks.named("generatePomFileForPluginMavenPublication")) {
+        rename { "kbuild-$releaseVersion.pom" }
+    }
+    dependsOn(":kbuild-platform:releaseAssets")
+    from(project(":kbuild-platform").layout.buildDirectory.dir("release-assets"))
+    doLast {
+        val checksums = destinationDir.listFiles().orEmpty()
+            .filter { it.isFile && it.name != "SHA256SUMS" }
+            .sortedBy { it.name }
+            .joinToString("") { file ->
+                val digest = MessageDigest.getInstance("SHA-256")
+                    .digest(file.readBytes()).joinToString("") { "%02x".format(it) }
+                "$digest  ${file.name}\n"
+            }
+        destinationDir.resolve("SHA256SUMS").writeText(checksums)
+    }
 }
 
 publishing {
@@ -170,30 +183,5 @@ publishing {
                 }
             }
         }
-    }
-    repositories {
-        maven {
-            name = "sonatypeSnapshots"
-            url = uri("https://central.sonatype.com/repository/maven-snapshots/")
-            credentials {
-                username = findProperty("mavenCentralUsername") as String? ?: ""
-                password = findProperty("mavenCentralPassword") as String? ?: ""
-            }
-        }
-    }
-}
-
-signing {
-    val key = findProperty("signingKey") as String?
-    val pass = findProperty("signingPassword") as String?
-    // Snapshots are never validated, and each signature doubles the files uploaded.
-    val isSnapshot = version.toString().endsWith("SNAPSHOT")
-    if (key != null && pass != null && !isSnapshot) {
-        useInMemoryPgpKeys(key, pass)
-        sign(publishing.publications)
-    } else if (isSnapshot) {
-        logger.lifecycle("Signing skipped: $version is a snapshot.")
-    } else {
-        logger.lifecycle("Signing disabled: signingKey or signingPassword not defined.")
     }
 }
