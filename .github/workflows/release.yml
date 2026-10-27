@@ -2,8 +2,7 @@ name: release
 
 on:
   push:
-    tags:
-      - 'v*'
+    tags: ['v*']
   workflow_dispatch:
     inputs:
       dryRun:
@@ -20,17 +19,72 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  prepare:
+    name: Resolve release version and revision
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      dry_run: ${{ steps.version.outputs.dry_run }}
+      revision: ${{ steps.version.outputs.revision }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - name: Resolve release version
+        id: version
+        env:
+          DRY_RUN: ${{ inputs.dryRun == true }}
+        run: |
+          if [[ "$GITHUB_REF_TYPE" == tag && "$GITHUB_REF_NAME" == v* ]]; then
+            version="${GITHUB_REF_NAME#v}"
+          elif [[ "$DRY_RUN" == true ]]; then
+            version="0.0.0-dry-run.$GITHUB_RUN_ID"
+          else
+            echo "Publishing requires a version tag; use dryRun on a branch." >&2
+            exit 1
+          fi
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ || "$version" == *SNAPSHOT* ]]; then
+            echo "Expected a pinned release version, got: $version" >&2
+            exit 1
+          fi
+          {
+            echo "version=$version"
+            echo "dry_run=$DRY_RUN"
+            echo "revision=$(git rev-parse HEAD)"
+          } >> "$GITHUB_OUTPUT"
+
+  # Tags and manual runs use the same Linux, Android, and macOS gate as pull requests.
+  validate:
+    needs: prepare
+    uses: ./.github/workflows/build.yml
+    with:
+      ref: ${{ needs.prepare.outputs.revision }}
+    secrets:
+      GRADLE_ENCRYPTION_KEY: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
   publish:
+    needs: [prepare, validate]
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
       contents: write
+    env:
+      RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+      DRY_RUN: ${{ needs.prepare.outputs.dry_run }}
     steps:
-      - uses: actions/checkout@v7
+      - name: Checkout
+        uses: actions/checkout@v7
         with:
+          ref: ${{ needs.prepare.outputs.revision }}
+          persist-credentials: false
           fetch-depth: 0
 
-      - uses: actions/setup-java@v6
+      - name: Set up JDK
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: |
@@ -45,32 +99,20 @@ jobs:
           cache-read-only: true
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 
-      - name: Resolve version
-        env:
-          DRY_RUN: ${{ inputs.dryRun == true }}
-        run: |
-          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
-            version="${GITHUB_REF_NAME#v}"
-          elif [[ "$DRY_RUN" == "true" ]]; then
-            version="0.0.0-dry-run.$GITHUB_RUN_ID"
-          else
-            echo "Publishing requires a version tag; use dryRun on a branch." >&2
-            exit 1
-          fi
-          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ || "$version" == *SNAPSHOT* ]]; then
-            echo "Expected a pinned release version, got: $version" >&2
-            exit 1
-          fi
-          echo "RELEASE_VERSION=$version" >> "$GITHUB_ENV"
-          echo "DRY_RUN=$DRY_RUN" >> "$GITHUB_ENV"
+      - name: Restore Kotlin/Native toolchain
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/.konan
+          key: ${{ runner.os }}-${{ runner.arch }}-konan-${{ hashFiles('**/*.gradle.kts', '**/gradle.properties', '**/gradle-wrapper.properties', '**/*.versions.toml') }}
+          restore-keys: ${{ runner.os }}-${{ runner.arch }}-konan-
 
       - name: Build, test, and stage release assets
         run: ./gradlew build releaseAssets -PciVersion="$RELEASE_VERSION"
 
       - name: Validate release layout and anonymous consumers before publishing
         run: |
-          python3 .github/scripts/check-publication-files.py build/release-assets --version "$RELEASE_VERSION"
-          python3 .github/scripts/check-release-resolution.py --version "$RELEASE_VERSION" --gradle "$(command -v gradle)"
+          bash .github/scripts/check-publication-files.sh build/release-assets --version "$RELEASE_VERSION"
+          bash .github/scripts/check-release-resolution.sh --version "$RELEASE_VERSION" --gradle "$(command -v gradle)"
 
       - name: Upload validated assets for inspection
         uses: actions/upload-artifact@v7
@@ -92,18 +134,17 @@ jobs:
 
       - name: Verify anonymous resolution from the public release
         if: env.DRY_RUN != 'true'
-        # The check forwards only PATH/JDK paths/locale and uses isolated HOME/Gradle homes.
-        # Neither the GitHub token nor Gradle's cached credentials reach these builds.
+        # Only PATH/JDK paths/locale reach the isolated HOME/Gradle homes.
         run: |
-          python3 .github/scripts/check-release-resolution.py --version "$RELEASE_VERSION" \
+          bash .github/scripts/check-release-resolution.sh --version "$RELEASE_VERSION" \
             --repository-url "https://github.com/$GITHUB_REPOSITORY/releases/download" --gradle "$(command -v gradle)"
 
       - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: test-reports
+          name: release-test-reports
           path: |
-            build/reports/tests/
-            build/test-results/
+            **/build/reports/tests/
+            **/build/test-results/
           if-no-files-found: ignore

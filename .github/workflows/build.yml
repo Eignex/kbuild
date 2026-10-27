@@ -5,10 +5,23 @@ on:
     branches: [ main ]
   pull_request:
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      ref:
+        type: string
+        default: ''
+    secrets:
+      GRADLE_ENCRYPTION_KEY:
+        required: false
+      CODECOV_TOKEN:
+        required: false
+
+permissions:
+  contents: read
 
 # A newer push supersedes any in-flight run for the same ref.
 concurrency:
-  group: build-${{ github.ref }}
+  group: build-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -20,6 +33,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          ref: ${{ inputs.ref || github.sha }}
 
       - name: Set up JDK
         uses: actions/setup-java@v6
@@ -30,7 +46,7 @@ jobs:
             21
             25
 
-      # Persists the Gradle home incl. the build and configuration caches across runs.
+      # Build jobs persist dependency and encrypted configuration caches.
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
         with:
@@ -42,8 +58,8 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ~/.konan
-          key: ${{ runner.os }}-konan-${{ hashFiles('build.gradle.kts', 'gradle/libs.versions.toml') }}
-          restore-keys: ${{ runner.os }}-konan-
+          key: ${{ runner.os }}-${{ runner.arch }}-konan-${{ hashFiles('**/*.gradle.kts', '**/gradle.properties', '**/gradle-wrapper.properties', '**/*.versions.toml') }}
+          restore-keys: ${{ runner.os }}-${{ runner.arch }}-konan-
 
       - name: Grant execute permission for Gradle
         run: chmod +x gradlew
@@ -58,8 +74,8 @@ jobs:
           ./gradlew releaseAssets -PciVersion="$RELEASE_VERSION"
           # A second run also verifies staging works with the configuration cache.
           ./gradlew releaseAssets -PciVersion="$RELEASE_VERSION"
-          python3 .github/scripts/check-publication-files.py build/release-assets --version "$RELEASE_VERSION"
-          python3 .github/scripts/check-release-resolution.py --version "$RELEASE_VERSION" --gradle "$(command -v gradle)"
+          bash .github/scripts/check-publication-files.sh build/release-assets --version "$RELEASE_VERSION"
+          bash .github/scripts/check-release-resolution.sh --version "$RELEASE_VERSION" --gradle "$(command -v gradle)"
 
       - name: Set up Android consumer tools
         run: |
@@ -94,14 +110,19 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          ref: ${{ inputs.ref || github.sha }}
 
       - name: Set up JDK
         uses: actions/setup-java@v6
         with:
           distribution: temurin
-          java-version: 25
+          java-version: |
+            17
+            25
 
-      # Persists the Gradle home incl. the build and configuration caches across runs.
+      # Build jobs persist dependency and encrypted configuration caches.
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
         with:
@@ -112,8 +133,8 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ~/.konan
-          key: ${{ runner.os }}-konan-${{ hashFiles('build.gradle.kts', 'gradle/libs.versions.toml') }}
-          restore-keys: ${{ runner.os }}-konan-
+          key: ${{ runner.os }}-${{ runner.arch }}-konan-${{ hashFiles('**/*.gradle.kts', '**/gradle.properties', '**/gradle-wrapper.properties', '**/*.versions.toml') }}
+          restore-keys: ${{ runner.os }}-${{ runner.arch }}-konan-
 
       - name: Grant execute permission for Gradle
         run: chmod +x gradlew

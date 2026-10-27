@@ -503,15 +503,17 @@ with `dryRun=true` stage and validate assets without publishing; a manual publis
 version tag. Main pushes no longer upload KBuild snapshots to Sonatype. Existing Central releases
 and downstream library publishing are unaffected.
 
-To validate a candidate locally, with JDK 25 in `JAVA_HOME`, JDK 17 in `JAVA_HOME_17_X64`,
-and the wrapper's Gradle version installed (CI installs these with `setup-java` and `setup-gradle`):
+The release checks use Bash 4.2 or newer, `jq`, GNU coreutils, `tar`, `unzip`, and the JDK's
+`jwebserver`; they do not require Python. To validate a candidate locally, set JDK 25 in
+`JAVA_HOME` and JDK 17 in `JAVA_HOME_17_X64`, and install the wrapper's Gradle version
+(CI installs the JDKs and Gradle with `setup-java` and `setup-gradle`):
 
 ```shell
 ./gradlew releaseAssets -PciVersion=1.3.6
-python3 .github/scripts/check-publication-files.py build/release-assets --version 1.3.6
-python3 .github/scripts/check-release-resolution.py --version 1.3.6 --gradle "$(command -v gradle)"
+bash .github/scripts/check-publication-files.sh build/release-assets --version 1.3.6
+bash .github/scripts/check-release-resolution.sh --version 1.3.6 --gradle "$(command -v gradle)"
 # After publishing, also check the real public URLs:
-python3 .github/scripts/check-release-resolution.py --version 1.3.6 --gradle "$(command -v gradle)" \
+bash .github/scripts/check-release-resolution.sh --version 1.3.6 --gradle "$(command -v gradle)" \
   --repository-url https://github.com/Eignex/kbuild/releases/download
 ```
 
