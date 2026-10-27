@@ -6,7 +6,7 @@ set -euo pipefail
 fail() { echo "ERROR: $*" >&2; exit 1; }
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)
 assets=$root/build/release-assets
-version='' repository='' gradle=''
+version='' repository='' gradle=$root/gradlew
 while (($#)); do
     [[ $# -ge 2 ]] || fail "missing value for $1"
     case $1 in
@@ -18,7 +18,9 @@ while (($#)); do
     esac
     shift 2
 done
-[[ -n $version && -n $gradle ]] || fail "usage: $0 --version VERSION --gradle EXECUTABLE [--assets DIRECTORY | --repository-url URL]"
+[[ -n $version ]] || fail "usage: $0 --version VERSION [--gradle EXECUTABLE] [--assets DIRECTORY | --repository-url URL]"
+# Use the pinned wrapper unless explicitly probing another Gradle distribution.
+# The runner's system Gradle may be newer than the version supported by our plugins.
 [[ $version =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ && $version != *SNAPSHOT* ]] || fail "expected a pinned release version: $version"
 gradle=$(realpath "$gradle")
 [[ -x $gradle ]] || fail "Gradle executable is missing: $gradle"

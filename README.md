@@ -604,18 +604,19 @@ and downstream library publishing are unaffected.
 
 The release checks use Bash 4.2 or newer, `jq`, GNU coreutils, `tar`, `unzip`, and the JDK's
 `jwebserver`; they do not require Python. To validate a candidate locally, set JDK 25 in
-`JAVA_HOME` and JDK 17 in `JAVA_HOME_17_X64`, and install the wrapper's Gradle version
-(CI installs the JDKs and Gradle with `setup-java` and `setup-gradle`):
+`JAVA_HOME` and JDK 17 in `JAVA_HOME_17_X64`. The checks use the pinned Gradle wrapper
+(CI installs the JDKs with `setup-java`):
 
 ```shell
 ./gradlew releaseAssets -PciVersion=1.3.7
 bash .github/scripts/check-publication-files.sh build/release-assets --version 1.3.7
-bash .github/scripts/check-release-resolution.sh --version 1.3.7 --gradle "$(command -v gradle)"
+bash .github/scripts/check-release-resolution.sh --version 1.3.7
 # After publishing, also check the real public URLs:
-bash .github/scripts/check-release-resolution.sh --version 1.3.7 --gradle "$(command -v gradle)" \
+bash .github/scripts/check-release-resolution.sh --version 1.3.7 \
   --repository-url https://github.com/Eignex/kbuild/releases/download
 ```
 
+Use `--gradle /path/to/gradle` to explicitly probe another Gradle distribution.
 The resolution check serves the exact release layout over anonymous HTTP, uses two separate empty
 Gradle user homes and an isolated home directory, and forwards no credentials. It resolves all six
 plugin IDs and their transitive plugins, checks imported BOMs and direct platform constraints,

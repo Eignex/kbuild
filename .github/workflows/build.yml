@@ -75,7 +75,7 @@ jobs:
           # A second run also verifies staging works with the configuration cache.
           ./gradlew releaseAssets -PciVersion="$RELEASE_VERSION"
           bash .github/scripts/check-publication-files.sh build/release-assets --version "$RELEASE_VERSION"
-          bash .github/scripts/check-release-resolution.sh --version "$RELEASE_VERSION" --gradle "$(command -v gradle)"
+          bash .github/scripts/check-release-resolution.sh --version "$RELEASE_VERSION"
 
       - name: Set up Android consumer tools
         run: |

@@ -112,7 +112,7 @@ jobs:
       - name: Validate release layout and anonymous consumers before publishing
         run: |
           bash .github/scripts/check-publication-files.sh build/release-assets --version "$RELEASE_VERSION"
-          bash .github/scripts/check-release-resolution.sh --version "$RELEASE_VERSION" --gradle "$(command -v gradle)"
+          bash .github/scripts/check-release-resolution.sh --version "$RELEASE_VERSION"
 
       - name: Upload validated assets for inspection
         uses: actions/upload-artifact@v7
@@ -132,7 +132,7 @@ jobs:
         # Only PATH/JDK paths/locale reach the isolated HOME/Gradle homes.
         run: |
           bash .github/scripts/check-release-resolution.sh --version "$RELEASE_VERSION" \
-            --repository-url "https://github.com/$GITHUB_REPOSITORY/releases/download" --gradle "$(command -v gradle)"
+            --repository-url "https://github.com/$GITHUB_REPOSITORY/releases/download"
 
       - name: Upload test reports
         if: always()
