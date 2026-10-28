@@ -1,4 +1,4 @@
-plugins { id("com.eignex.kmp") }
+plugins { id("com.eignex.kmp"); kotlin("plugin.serialization") }
 group = "org.example"
 kotlin {
     jvm()

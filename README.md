@@ -50,20 +50,16 @@ pluginManagement {
         if (requested.id.id in setOf(
             "com.eignex.jvm", "com.eignex.kmp", "com.eignex.cli",
             "com.eignex.publish", "com.eignex.lint", "com.eignex.publish.github",
+            "org.jetbrains.kotlin.plugin.serialization",
         )) {
-            useModule("com.eignex:kbuild:${requested.version ?: kbuildVersion}")
+            useModule("com.eignex:kbuild:$kbuildVersion")
         }
-    }
-    plugins {
-        id("com.eignex.jvm") version kbuildVersion
-        id("com.eignex.kmp") version kbuildVersion
-        id("com.eignex.cli") version kbuildVersion
-        id("com.eignex.publish") version kbuildVersion
-        id("com.eignex.lint") version kbuildVersion
-        id("com.eignex.publish.github") version kbuildVersion
     }
 }
 ```
+
+KBuild bundles the Kotlin serialization compiler plugin at its own Kotlin version, so
+`kotlin("plugin.serialization")` is applied without a version.
 
 Apply the plugin in a module's `build.gradle.kts`:
 

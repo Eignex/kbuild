@@ -13,17 +13,13 @@ pluginManagement {
         mavenCentral { content { excludeModule("com.eignex", "kbuild") } }
     }
     resolutionStrategy.eachPlugin {
-        if (requested.id.id in setOf("com.eignex.jvm", "com.eignex.kmp", "com.eignex.cli", "com.eignex.publish", "com.eignex.lint", "com.eignex.publish.github")) {
-            useModule("com.eignex:kbuild:${requested.version ?: kbuildVersion}")
+        if (requested.id.id in setOf(
+            "com.eignex.jvm", "com.eignex.kmp", "com.eignex.cli",
+            "com.eignex.publish", "com.eignex.lint", "com.eignex.publish.github",
+            "org.jetbrains.kotlin.plugin.serialization",
+        )) {
+            useModule("com.eignex:kbuild:$kbuildVersion")
         }
-    }
-    plugins {
-        id("com.eignex.jvm") version kbuildVersion
-        id("com.eignex.kmp") version kbuildVersion
-        id("com.eignex.cli") version kbuildVersion
-        id("com.eignex.publish") version kbuildVersion
-        id("com.eignex.lint") version kbuildVersion
-        id("com.eignex.publish.github") version kbuildVersion
     }
 }
 rootProject.name = "release-resolution"
