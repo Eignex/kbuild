@@ -1,87 +1,33 @@
 # KBuild
 
-Gradle conventions for Kotlin libraries and CLI applications, with shared testing,
-lint, documentation, and publishing defaults. Requires JDK 21+ to run Gradle;
-JVM compilation and tests default to JDK 17.
+Gradle conventions for Kotlin libraries and CLI applications: testing, lint,
+documentation and publishing. Requires JDK 21+; JVM compilation and tests default to JDK 17.
 
-## Installation
+## Setup
 
-Add the [release repository](https://github.com/Eignex/kbuild/releases) to `settings.gradle.kts`:
+Use the [plugin repository setup](samples/release-resolution/settings.gradle.kts)
+and [platform repository setup](samples/release-resolution/build.gradle.kts), with
+these properties in `gradle.properties`:
 
-```kotlin
-pluginManagement {
-    val kbuildVersion = "1.3.6"
-    repositories {
-        ivy {
-            url = uri("https://github.com/Eignex/kbuild/releases/download")
-            patternLayout { artifact("v[revision]/[artifact]-[revision](-[classifier]).[ext]") }
-            metadataSources { gradleMetadata() }
-            content { includeModule("com.eignex", "kbuild") }
-        }
-        gradlePluginPortal()
-        mavenCentral()
-    }
-    resolutionStrategy.eachPlugin {
-        if (requested.id.id in setOf(
-            "com.eignex.jvm", "com.eignex.kmp", "com.eignex.cli",
-            "com.eignex.publish", "com.eignex.lint", "com.eignex.publish.github",
-            "org.jetbrains.kotlin.plugin.serialization",
-        )) {
-            useModule("com.eignex:kbuild:$kbuildVersion")
-        }
-    }
-}
+```properties
+kbuildVersion=<release version>
+releaseRepository=https://github.com/Eignex/kbuild/releases/download
 ```
 
-JVM and KMP projects also need the build platform repository in the root
-`build.gradle.kts`:
-
-```kotlin
-allprojects {
-    repositories {
-        ivy {
-            url = uri("https://github.com/Eignex/kbuild/releases/download")
-            patternLayout { artifact("v[revision]/[artifact]-[revision](-[classifier]).[ext]") }
-            metadataSources { gradleMetadata() }
-            content { includeModule("com.eignex", "kbuild-platform") }
-        }
-        mavenCentral()
-    }
-}
-```
+Choose a version from [Releases](https://github.com/Eignex/kbuild/releases).
 
 ## Usage
 
-In a library's `build.gradle.kts`:
+- `com.eignex.jvm`: [JVM library example](samples/jvm-positive/build.gradle.kts).
+- `com.eignex.kmp`: [multiplatform library example](samples/kmp-positive/build.gradle.kts).
+- `com.eignex.cli`: [CLI example](samples/cli-positive/build.gradle.kts); `releaseAssets` stages distributions.
 
-```kotlin
-plugins { id("com.eignex.jvm") }
+Apply `kotlin("plugin.serialization")` without a version to use the bundled plugin.
+`check` runs tests and lint; `lintDocs` validates documentation. Lint is read-only
+by default; `formatKotlin` applies corrections. Override rules in a root `detekt.yml`.
 
-eignexPublish {
-    githubRepo.set("Owner/library")
-    description.set("My Kotlin library")
-}
-```
-
-Use `com.eignex.kmp` for multiplatform libraries and declare targets in `kotlin { }`.
-Both library conventions include Dokka, Kover, lint, and Maven Central publishing;
-KMP also enables ABI validation. Apply `kotlin("plugin.serialization")` without a
-version to use the bundled serialization plugin.
-
-For CLI applications, apply `com.eignex.cli` and configure
-[eignexCli](src/main/kotlin/com/eignex/kbuild/EignexCliExtension.kt).
-Run `releaseAssets` to stage executables, a JVM distribution ZIP, and checksums.
-
-`check` runs tests and lint; `lintDocs` adds documentation checks. By default, both
-report formatting violations without editing sources. Run `formatKotlin` explicitly to
-apply formatting corrections, then run verification. Formatting preserves compact
-argument lists and `when` branches without requiring trailing commas. Override
-the shared rules in a root `detekt.yml`. Configure
-[build](src/main/kotlin/com/eignex/kbuild/EignexBuildExtension.kt) and
-[lint](src/main/kotlin/com/eignex/kbuild/EignexLintExtension.kt) defaults through
-`eignexBuild` and `eignexLint`.
-
-Publishing uses Apache-2.0 and Eignex developer defaults. Use
-[mavenPublish](src/main/kotlin/com/eignex/kbuild/MavenPublishExtension.kt) for custom
-metadata or `eignexPublish { publish.set(false) }` for internal modules. For GitHub
-Releases, apply [com.eignex.publish.github](build-logic/src/main/kotlin/com/eignex/kbuild/GitHubPublishPlugin.kt).
+Configure [build](src/main/kotlin/com/eignex/kbuild/EignexBuildExtension.kt),
+[lint](src/main/kotlin/com/eignex/kbuild/EignexLintExtension.kt),
+[CLI](src/main/kotlin/com/eignex/kbuild/EignexCliExtension.kt) and
+[publishing](src/main/kotlin/com/eignex/kbuild/MavenPublishExtension.kt) through their extensions.
+Use `eignexPublish { publish.set(false) }` for internal modules.
