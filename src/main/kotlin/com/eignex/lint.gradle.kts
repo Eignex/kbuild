@@ -13,7 +13,7 @@ val eignexLint = extensions.create<EignexLintExtension>("eignexLint")
 val eignexBuild = project.getOrCreateEignexBuildExtension()
 eignexLint.enabled.convention(true)
 eignexLint.useEignexConfig.convention(true)
-eignexLint.autoCorrect.convention(true)
+eignexLint.autoCorrect.convention(false)
 eignexLint.htmlReport.convention(true)
 eignexLint.sarifReport.convention(false)
 
@@ -30,6 +30,26 @@ val eignexDetektConfigContent =
         ktlint:
           active: true
           NoWildcardImports:
+            active: false
+          ArgumentListWrapping:
+            active: false
+          BlankLineBetweenWhenConditions:
+            active: false
+          ClassSignature:
+            active: false
+          FunctionSignature:
+            active: false
+          MultiLineIfElse:
+            active: false
+          ParameterListWrapping:
+            active: false
+          SpacingAroundParens:
+            active: false
+          TrailingCommaOnCallSite:
+            active: false
+          TrailingCommaOnDeclarationSite:
+            active: false
+          Wrapping:
             active: false
         style:
           WildcardImport:
@@ -102,12 +122,24 @@ detekt {
 tasks.withType<Detekt>().configureEach {
     dependsOn(writeEignexDetektConfig)
     jvmTarget = KBUILD_JVM_TOOLCHAIN.toString()
-    autoCorrect = eignexLint.autoCorrect.get()
+    autoCorrect = name == "formatKotlin" || eignexLint.autoCorrect.get()
     reports {
         html.required.set(eignexLint.htmlReport.get())
         sarif.required.set(eignexLint.sarifReport.get())
     }
 }
+
+tasks.register<Detekt>("formatKotlin") {
+    group = "formatting"
+    description = "Applies Kotlin formatting corrections using the project's detekt configuration."
+    setSource(detekt.source)
+    disableDefaultRuleSets = true
+    // Cached reports cannot reproduce the edits this task makes to its inputs.
+    outputs.cacheIf { false }
+    outputs.upToDateWhen { false }
+}
+
+val detektVerificationTasks = tasks.withType<Detekt>().matching { it.name != "formatKotlin" }
 
 tasks.withType<DetektCreateBaselineTask>().configureEach {
     dependsOn(writeEignexDetektConfig)
@@ -117,7 +149,7 @@ tasks.withType<DetektCreateBaselineTask>().configureEach {
 afterEvaluate {
     tasks.withType<Detekt>().configureEach {
         jvmTarget = eignexBuild.jvmToolchain.get().toString()
-        autoCorrect = eignexLint.autoCorrect.get()
+        autoCorrect = name == "formatKotlin" || eignexLint.autoCorrect.get()
         reports.html.required.set(eignexLint.htmlReport.get())
         reports.sarif.required.set(eignexLint.sarifReport.get())
     }
@@ -285,7 +317,7 @@ val checkKdoc = tasks.register("checkKdoc") {
 val lintDocs = tasks.register("lintDocs") {
     group = "verification"
     description = "Runs detekt comment rules and Dokka, failing on unresolved KDoc links and unknown tags."
-    dependsOn(tasks.withType<Detekt>())
+    dependsOn(detektVerificationTasks)
 }
 
 pluginManager.withPlugin("org.jetbrains.dokka") {
@@ -323,7 +355,7 @@ pluginManager.withPlugin("org.jetbrains.dokka") {
 // thing in CI, so consumers run it as a separate parallel job. The checks above still catch
 // the common KDoc mistakes locally; dokka stays the thorough backstop.
 tasks.named("check") {
-    dependsOn(tasks.withType<Detekt>())
+    dependsOn(detektVerificationTasks)
     dependsOn(checkNativeSafeTestNames)
     dependsOn(checkKdoc)
 }

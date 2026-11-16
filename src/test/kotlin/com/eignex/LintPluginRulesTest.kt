@@ -1,9 +1,13 @@
 package com.eignex
 
 import org.gradle.testkit.runner.TaskOutcome
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import java.io.File
 
 /**
@@ -12,6 +16,87 @@ import java.io.File
  * finding (position and rule), so a rule that fires for the wrong reason still fails.
  */
 class LintPluginRulesTest {
+
+    @ParameterizedTest
+    @ValueSource(strings = ["check", "lintDocs", "detektMain"])
+    fun `verification reports formatting violations without editing sources`(task: String, @TempDir dir: File) {
+        val probe = lintProbe(dir)
+        val original = "internal class Unformatted  \n"
+        val source = probe.write("src/main/kotlin/Unformatted.kt", original)
+
+        val result = probe.buildAndFail(task)
+
+        assertTrue("[NoTrailingSpaces]" in result.output) { result.output }
+        assertEquals(original, source.readText())
+        assertNull(result.task(":formatKotlin"))
+    }
+
+    @Test
+    fun `formatting corrects whitespace without running semantic rules or reusing cached edits`(@TempDir dir: File) {
+        val probe = lintProbe(dir)
+        val original = "public class Unformatted  \n"
+        val source = probe.write("src/main/kotlin/Unformatted.kt", original)
+
+        probe.build("formatKotlin", "--build-cache", "--configuration-cache")
+        assertEquals("public class Unformatted\n", source.readText())
+        source.writeText(original)
+
+        val result = probe.build("formatKotlin", "--build-cache", "--configuration-cache")
+
+        assertTrue("Reusing configuration cache" in result.output) { result.output }
+        result.assertOutcome(":formatKotlin", TaskOutcome.SUCCESS)
+        assertEquals("public class Unformatted\n", source.readText())
+    }
+
+    @Test
+    fun `formatting preserves compact argument lists parameters and when branches`(@TempDir dir: File) {
+        val probe = lintProbe(dir)
+        val original = """
+            internal class Coordinates(val x: Int,
+                val y: Int)
+
+            internal fun values(flag: Boolean,
+                alternate: Boolean): List<Int> {
+                val values = listOf(1, 2,
+                    3, 4)
+                val fallback = if (flag) listOf(5, 6)
+                else listOf(7, 8)
+                return when (flag || alternate) {
+                    true -> {
+                        values
+                    }
+                    false -> fallback
+                }
+            }
+        """.trimIndent() + "\n"
+        val source = probe.write("src/main/kotlin/Coordinates.kt", original)
+
+        probe.build("formatKotlin")
+        probe.build("check", "lintDocs")
+
+        assertEquals(original, source.readText())
+    }
+
+    @Test
+    fun `a root detekt config can override the shared formatting rules`(@TempDir dir: File) {
+        val probe = lintProbe(dir)
+        probe.write("detekt.yml", """
+            ktlint:
+              TrailingCommaOnCallSite:
+                active: true
+        """.trimIndent() + "\n")
+        val source = probe.write("src/main/kotlin/Values.kt", """
+            internal val values = listOf(
+                1,
+                2
+            )
+        """.trimIndent() + "\n")
+
+        probe.build("formatKotlin")
+
+        assertTrue("    2,\n" in source.readText()) { source.readText() }
+        probe.build("check")
+    }
 
     @Test
     fun `a fully qualified call is reported by detektMain`(@TempDir dir: File) {

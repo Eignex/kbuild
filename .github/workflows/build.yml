@@ -90,6 +90,9 @@ jobs:
       - name: Sample smoke test
         run: ./samples/smoke-test.sh
 
+      - name: Verify Kotlin sources are unchanged
+        run: git diff --exit-code -- '*.kt' '*.kts'
+
       - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@v7
@@ -151,3 +154,6 @@ jobs:
           cd samples/cli-positive/build/release-assets
           shasum -a 256 -c SHA256SUMS
           ./cli-positive-SNAPSHOT-macos-arm64 | grep "hello kbuild"
+
+      - name: Verify Kotlin sources are unchanged
+        run: git diff --exit-code -- '*.kt' '*.kts'

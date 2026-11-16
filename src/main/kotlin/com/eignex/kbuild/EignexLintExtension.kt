@@ -10,7 +10,7 @@ abstract class EignexLintExtension {
     /** Whether to include the built-in Eignex Detekt rules. Defaults to `true`. */
     abstract val useEignexConfig: Property<Boolean>
 
-    /** Whether Detekt should autocorrect. Defaults to `true`. */
+    /** Whether verification tasks should autocorrect. Defaults to `false`; `formatKotlin` always autocorrects. */
     abstract val autoCorrect: Property<Boolean>
 
     /** Whether HTML reports are generated. Defaults to `true`. */
