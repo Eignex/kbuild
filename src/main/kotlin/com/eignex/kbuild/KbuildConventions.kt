@@ -67,7 +67,8 @@ internal fun KotlinMultiplatformExtension.applyKbuildCommonDependencies(
             }
             // KGP resolves shared metadata and NPM manifests separately from compilation classpaths.
             project.configurations.matching {
-                it.name.endsWith("ResolvableDependenciesMetadata") || it.name.endsWith("NpmAggregated")
+                it.name == "allSourceSetsCompileDependenciesMetadata" ||
+                    it.name.endsWith("ResolvableDependenciesMetadata") || it.name.endsWith("NpmAggregated")
             }.configureEach { extendsFrom(platform) }
         }
         sourceSets.named("commonTest") {

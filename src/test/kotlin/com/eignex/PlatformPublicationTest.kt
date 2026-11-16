@@ -1,8 +1,10 @@
 package com.eignex
 
+import com.eignex.internal.KBUILD_VERSION
 import groovy.json.JsonSlurper
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
@@ -11,6 +13,71 @@ import javax.xml.parsers.DocumentBuilderFactory
 
 /** The build platform supplies versions without becoming part of a library's public dependencies. */
 class PlatformPublicationTest {
+    @Test
+    fun `shared KMP metadata uses the build platform over an older transitive platform`(@TempDir dir: File) {
+        val repository = writeFakePlatformRepo(dir)
+        val repo = dir.resolve("fake-platform-repo")
+        val template = repo.walkTopDown().single { it.extension == "pom" }.readText()
+        for (version in listOf("1.0.0", "2.0.0")) {
+            repo.resolve("com/eignex/kbuild-platform/$version/kbuild-platform-$version.pom").apply {
+                parentFile.mkdirs()
+                writeText(template.replace(KBUILD_VERSION, version))
+            }
+        }
+        repo.resolve("com/example/legacy/1.0.0/legacy-1.0.0.pom").apply {
+            parentFile.mkdirs()
+            writeText("""
+                <project xmlns="http://maven.apache.org/POM/4.0.0">
+                  <!-- do_not_remove: published-with-gradle-metadata -->
+                  <modelVersion>4.0.0</modelVersion>
+                  <groupId>com.example</groupId><artifactId>legacy</artifactId><version>1.0.0</version>
+                  <packaging>pom</packaging>
+                </project>
+            """.trimIndent())
+        }
+        repo.resolve("com/example/legacy/1.0.0/legacy-1.0.0.module").writeText("""
+            {
+              "formatVersion": "1.1",
+              "component": { "group": "com.example", "module": "legacy", "version": "1.0.0" },
+              "variants": [{
+                "name": "apiElements",
+                "attributes": { "org.gradle.category": "library" },
+                "dependencies": [{
+                  "group": "com.eignex", "module": "kbuild-platform", "version": { "requires": "1.0.0" },
+                  "attributes": { "org.gradle.category": "platform" }
+                }]
+              }]
+            }
+        """.trimIndent())
+        val probe = kmpProbe(dir, """
+            $repository
+            eignexBuild { platformVersion.set("2.0.0") }
+            kotlin { sourceSets.commonMain.dependencies { implementation("com.example:legacy:1.0.0") } }
+            tasks.register("verifyMetadataPlatform") {
+                val metadata = configurations.named("allSourceSetsCompileDependenciesMetadata")
+                val common = configurations.named("commonMainResolvableDependenciesMetadata")
+                val jvm = configurations.named("jvmMainCompileClasspath")
+                doLast {
+                    for (configuration in listOf(metadata.get(), common.get(), jvm.get())) {
+                        val result = configuration.incoming.resolutionResult
+                        val unresolved = result.allDependencies.filterIsInstance<
+                            org.gradle.api.artifacts.result.UnresolvedDependencyResult>()
+                        check(unresolved.isEmpty()) { unresolved.map { it.failure.message } }
+                        val platform = result.allComponents.singleOrNull {
+                            it.moduleVersion?.name == "kbuild-platform"
+                        }
+                        check(platform != null) { "${'$'}{configuration.name}: missing platform" }
+                        check(platform.moduleVersion?.version == "2.0.0") {
+                            "${'$'}{configuration.name}: ${'$'}{platform.moduleVersion}"
+                        }
+                    }
+                }
+            }
+        """)
+
+        probe.build("verifyMetadataPlatform", "--no-configuration-cache")
+    }
+
     @ParameterizedTest
     @ValueSource(strings = ["jvm", "kmp"])
     fun `publications carry resolved versions without the build platform`(plugin: String, @TempDir dir: File) {
