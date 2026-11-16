@@ -72,7 +72,11 @@ For CLI applications, apply `com.eignex.cli` and configure
 [eignexCli](src/main/kotlin/com/eignex/kbuild/EignexCliExtension.kt).
 Run `releaseAssets` to stage executables, a JVM distribution ZIP, and checksums.
 
-`check` runs tests and lint; `lintDocs` adds documentation checks. Configure
+`check` runs tests and lint; `lintDocs` adds documentation checks. By default, both
+report formatting violations without editing sources. Run `formatKotlin` explicitly to
+apply formatting corrections, then run verification. Formatting preserves compact
+argument lists and `when` branches without requiring trailing commas. Override
+the shared rules in a root `detekt.yml`. Configure
 [build](src/main/kotlin/com/eignex/kbuild/EignexBuildExtension.kt) and
 [lint](src/main/kotlin/com/eignex/kbuild/EignexLintExtension.kt) defaults through
 `eignexBuild` and `eignexLint`.
